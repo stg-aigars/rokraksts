@@ -1,0 +1,26 @@
+import type { CharsetId } from '../types'
+
+export type CharGroupId = 'lower' | 'lower-extra' | 'upper' | 'digits' | 'punctuation'
+
+export type CharGroup = {
+  id: CharGroupId
+  /** Grupas nosaukums saskarnē. */
+  label: string
+  /** Rakstzīmes uzvedņu secībā; katra ir viens NFC kodpunkts. */
+  chars: readonly string[]
+  /** true: jāuzraksta pirms pirmās kartītes; false: kad parādās tekstā. */
+  required: boolean
+}
+
+export type Charset = {
+  id: CharsetId
+  /** BCP 47 valodas birka. */
+  locale: string
+  groups: readonly CharGroup[]
+  /** Uzvednes teksts, piemēram, "Raksti mazo ā". */
+  prompt: (char: string) => string
+  /** Ievades rakstzīmes, ko attēlo ar citu glifu (pēc NFC normalizācijas). */
+  substitutions: Readonly<Record<string, string>>
+  /** Biežākie burti dilstošā secībā; ar tiem sākas variantu aplis. */
+  frequentChars: readonly string[]
+}
