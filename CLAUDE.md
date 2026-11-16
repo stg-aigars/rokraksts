@@ -26,14 +26,15 @@ Pirms katra commit jāiziet tīri: `lint`, `typecheck`, `test`, `build`. CI papi
 - Saskarnes teksti, testu nosaukumi un komentāri ir latviski; identifikatori kodā angliski.
 - Viss glabājas GitHub; lokālu kopiju nav, tāpēc darbs ir pabeigts tikai tad, kad tas ir nosūtīts.
 
-**Stāvoklis:** 0. posms (pamats) pabeigts. Nākamais ir 1. posms, zīmēšanas laukums.
+**Stāvoklis:** 0. posms (pamats) un 1. posms (zīmēšanas laukums) pabeigti. Nākamais ir 2. posms, kodols.
 
 ## Struktūra un robežas
 
 ```
 core/         tīrs TypeScript bez DOM; testi blakus failiem (*.test.ts)
 app/          Next.js App Router: (create)/, vēlāk (card)/, k/[id]/, api/cards/
-components/   React komponentes (DrawPad, GlyphGrid, Preview, CardCanvas)
+components/   React komponentes (DrawPad, WriteFlow; vēlāk GlyphGrid, Preview, CardCanvas)
+lib/          pārlūka puses palīgkods, kas nav komponente (project-store: IndexedDB caur idb)
 tests/        e2e/ (Playwright), spikes/ (bibliotēku pārbaudes), fixtures/
 types/        tipu deklarācijas bibliotēkām bez saviem tipiem
 ```
@@ -60,6 +61,21 @@ types/        tipu deklarācijas bibliotēkām bez saviem tipiem
   teksta satura.
 - **Metrika:** 1000 vienības uz em, pamatlīnija y = 0; vertikālo metriku rēķina no faktiski uzzīmētā
   augstākā un zemākā punkta, lai zīmes netiktu nogrieztas.
+
+## Zīmēšanas laukums (1. posms)
+
+- Ģeometrija ir `core/pad.ts`: laukums 1100 × 1400 vienības (y no +950 līdz −450); līnijas 700
+  (augšējā), 450 (mazo burtu augstums), 0 (pamatlīnija), −250 (apakšējā); palīgpunkti x = 150 un 950.
+  Brīvās joslas zīmēm: 250 vienības augšā, 200 apakšā.
+- Punktus glabā kā veselus skaitļus fonta vienībās; `t` ir ms no burta pirmā vilciena sākuma; `p`
+  ieraksta tikai tad, ja ierīce spiedienu tiešām mēra (ne pele, ne 0 vai 0.5).
+- Sesija (`core/project.ts`) ir `FontProject` plus atvērtā rakstzīme; `FontProject` paliek kā PRD
+  10. sadaļā. IndexedDB: datubāze `rokraksts`, krātuve `session`, atslēga `current`. Ielādējot
+  validē ar zod (`core/schema.ts`); nederīgs ieraksts nozīmē jaunu projektu.
+- "Tālāk" ir aktīva tikai tad, kad atvērtais burts ir uzrakstīts. Burtu izlaišana un "trūkst zīmes"
+  plūsma nāk 4. posmā.
+- E2E gaida `data-state="saved"` uz `save-state` elementa pirms pārlādes; skāriena tests (CDP
+  `Input.dispatchTouchEvent`) iet tikai telefona projektā.
 
 ## Bibliotēku pārbaude (0. posms, 2026-11-16)
 
