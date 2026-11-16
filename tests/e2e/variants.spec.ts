@@ -140,57 +140,91 @@ test('variantu pievieno, pārzīmē un dzēš turpat rakstīšanas plūsmā', as
   await expect(button(page, 'Dzēst variantu')).toBeDisabled()
 })
 
-test('blāvais paraugs: rakstot ā, fonā var ieslēgt tikko uzrakstīto a; glifā nonāk tikai jaunie vilcieni', async ({ page }) => {
-  // Burtam bez pamatburta parauga pogas nav.
-  await expect(page.getByRole('button', { name: /^Paraugs/ })).toHaveCount(0)
+test('blāvais paraugs: burtam ar zīmi laukumā ir mūsu orientieris; glifā nonāk tikai lietotāja vilcieni', async ({ page }) => {
+  const guide = page.getByTestId('ghost')
+  const toggle = button(page, 'Paraugs')
+  const guideOf = (char: string) => lv.guides[char]!
+
+  // Burtam bez zīmes parauga un pogas nav.
+  await expect(toggle).toHaveCount(0)
+  await expect(guide).toHaveCount(0)
   await touchStroke(page, [0.35, 0.45], [0.6, 0.65])
-  await touchStroke(page, [0.6, 0.45], [0.6, 0.65])
   await button(page, 'Tālāk').click()
   await expect(heading(page, 'Raksti mazo ā')).toBeVisible()
 
-  // Pēc noklusējuma izslēgts.
-  const toggle = button(page, 'Paraugs: a')
-  await expect(toggle).toHaveAttribute('aria-pressed', 'false')
-  await expect(page.getByTestId('ghost')).toHaveCount(0)
-
-  await toggle.click()
+  // Burtam ar zīmi paraugs ir ieslēgts pēc noklusējuma: shematisks burts un garumzīme virs tā.
   await expect(toggle).toHaveAttribute('aria-pressed', 'true')
-  await expect(page.getByTestId('ghost').locator('path')).toHaveCount(2)
-  await expect(page.getByTestId('ghost')).toHaveAttribute('stroke-opacity', '0.16')
-  // Paraugs nav vilciens: laukums joprojām ir tukšs un Tālāk nav pieejams.
+  await expect(guide.locator('path')).toHaveCount(guideOf('ā').length)
+  await expect(guide).toHaveAttribute('opacity', '0.16')
+  const [x0, y0, x1, y1] = guideOf('ā').at(-1)!
+  await expect(guide.locator('path').last()).toHaveAttribute('d', `M${x0} ${950 - y0!}L${x1} ${950 - y1!}`)
+  // Garumzīme parauga attēlā ir virs mazo burtu augstuma līnijas.
+  const xHeight = (await pad(page).locator('[data-line="x-height"]').boundingBox())!
+  const macron = (await guide.locator('path').last().boundingBox())!
+  expect(macron.y + macron.height).toBeLessThan(xHeight.y)
+
+  // Paraugs nav vilciens: laukums ir tukšs, Tālāk nav pieejams, priekšskatījumā "ā" vēl nav.
   await expect(pad(page)).toHaveAttribute('data-strokes', '0')
   await expect(button(page, 'Tālāk')).toBeDisabled()
-  const aOnly = await definedPaths(page).evaluateAll((paths) => paths.map((p) => p.getAttribute('d')))
-  expect(aOnly).toHaveLength(1)
+  await expect(definedPaths(page)).toHaveCount(1)
 
-  // Raksta tikai garumzīmi: glifā "ā" ir viens vilciens, "a" nav mainījies.
+  // Raksta pāri paraugam: glifā "ā" ir tikai lietotāja vilcieni.
+  await touchStroke(page, [0.4, 0.5], [0.6, 0.65])
   await touchStroke(page, [0.3, 0.3], [0.7, 0.3])
+  await expect(guide.locator('path')).toHaveCount(guideOf('ā').length)
   await saved(page)
-  const state = await stored(page)
-  expect(state.glyphs).toEqual({ a: [2], ā: [1] })
-  const both = await definedPaths(page).evaluateAll((paths) => paths.map((p) => p.getAttribute('d')))
-  expect(both).toHaveLength(2)
-  // Kontūras ir pirmās parādīšanās secībā tekstā; "a" kontūra ir tā pati, kas pirms tam.
-  expect(both).toContain(aOnly[0])
+  expect((await stored(page)).glyphs).toEqual({ a: [1], ā: [2] })
+  await expect(definedPaths(page)).toHaveCount(2)
 
-  // Izvēle saglabājas pēc pārlādes un nākamajam burtam ar zīmi; burtam bez pamatburta pogas nav.
+  // Izslēgšana saglabājas pēc pārlādes un attiecas arī uz nākamajiem burtiem.
+  await toggle.click()
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false')
+  await expect(guide).toHaveCount(0)
+  await saved(page)
   await page.reload()
-  await expect(button(page, 'Paraugs: a')).toHaveAttribute('aria-pressed', 'true')
-  await expect(page.getByTestId('ghost').locator('path')).toHaveCount(2)
-  await button(page, 'Tālāk').click()
-  await expect(heading(page, 'Raksti mazo b')).toBeVisible()
-  await expect(page.getByRole('button', { name: /^Paraugs/ })).toHaveCount(0)
-  await expect(page.getByTestId('ghost')).toHaveCount(0)
+  await expect(heading(page, 'Raksti mazo ā')).toBeVisible()
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false')
+  await expect(guide).toHaveCount(0)
 
-  // č: pamatburts c vēl nav uzrakstīts, kamēr neesam tam tikuši cauri.
-  await touchStroke(page, [0.4, 0.3], [0.4, 0.65])
-  await button(page, 'Tālāk').click()
-  await touchStroke(page, [0.6, 0.4], [0.4, 0.6])
+  // b un c: bez parauga. č: poga ir, un ieslēdzot parādās c ar jumtiņu.
+  for (const char of ['b', 'c']) {
+    await button(page, 'Tālāk').click()
+    await expect(heading(page, `Raksti mazo ${char}`)).toBeVisible()
+    await expect(toggle).toHaveCount(0)
+    await touchStroke(page, [0.4, 0.3], [0.5, 0.65])
+  }
   await button(page, 'Tālāk').click()
   await expect(heading(page, 'Raksti mazo č')).toBeVisible()
-  await expect(page.getByTestId('ghost').locator('path')).toHaveCount(1)
-  await button(page, 'Paraugs: c').click()
-  await expect(page.getByTestId('ghost')).toHaveCount(0)
+  await expect(guide).toHaveCount(0)
+  await toggle.click()
+  await expect(guide.locator('path')).toHaveCount(guideOf('č').length)
+})
+
+test('paraugs burtiem ķ un ģ: komats nav savienots ar burtu; ķ zīme ir apakšā, ģ augšā', async ({ page }) => {
+  // Burtus līdz ķ pāriet ar vienu vilcienu katram.
+  const alphabet = requiredChars(lv)
+  const guide = page.getByTestId('ghost')
+  const baseline = async () => (await pad(page).locator('[data-line="baseline"]').boundingBox())!.y
+  const xHeight = async () => (await pad(page).locator('[data-line="x-height"]').boundingBox())!.y
+  for (const char of alphabet.slice(0, alphabet.indexOf('ķ'))) {
+    await expect(heading(page, `Raksti mazo ${char}`)).toBeVisible()
+    if (char === 'ģ') {
+      const mark = (await guide.locator('path').last().boundingBox())!
+      expect(mark.y + mark.height).toBeLessThan(await xHeight())
+    }
+    await touchStroke(page, [0.4, 0.4], [0.6, 0.6])
+    await button(page, 'Tālāk').click()
+  }
+  await expect(heading(page, 'Raksti mazo ķ')).toBeVisible()
+  const paths = guide.locator('path')
+  await expect(paths).toHaveCount(lv.guides['ķ']!.length)
+  const mark = (await paths.last().boundingBox())!
+  expect(mark.y).toBeGreaterThan(await baseline())
+  // Starp burtu un komatu ir sprauga.
+  for (let i = 0; i < lv.guides['ķ']!.length - 1; i++) {
+    const part = (await paths.nth(i).boundingBox())!
+    expect(part.y + part.height).toBeLessThan(mark.y)
+  }
 })
 
 test('pēc 33 burtiem piedāvā apli "Uzraksti vēlreiz"; pangramma attēlojas pilnībā ar dažādiem variantiem', async ({ page }) => {

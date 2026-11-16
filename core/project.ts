@@ -20,7 +20,7 @@ export type Session = {
   fresh: boolean
   /** Vai notiek aplis "Uzraksti vēlreiz" (PRD 7. sadaļa). */
   lap: boolean
-  /** Vai laukumā rādīt blāvo pamatburta paraugu (PRD 5. sadaļa). */
+  /** Vai laukumā rādīt blāvo paraugu burtiem ar zīmēm (PRD 5. sadaļa); pēc noklusējuma jā. */
   ghost: boolean
 }
 
@@ -44,7 +44,7 @@ export function promptChars(project: FontProject): string[] {
 
 export function createSession(id: string, createdAt: string): Session {
   const project = createProject(id, createdAt)
-  return { project, current: promptChars(project)[0]!, variant: 0, fresh: true, lap: false, ghost: false }
+  return { project, current: promptChars(project)[0]!, variant: 0, fresh: true, lap: false, ghost: true }
 }
 
 function countOf(project: FontProject, char: string): number {
@@ -254,23 +254,20 @@ export function progress(session: Session): { done: number; total: number } {
 
 // --- blāvais paraugs (PRD 5. sadaļa) ---
 
-/** Atvērtās rakstzīmes pamatburts no rakstzīmju kopas datiem (ā -> a); citām rakstzīmēm nav. */
-export function baseChar(session: Session): string | undefined {
-  return getCharset(session.project.charset).baseChars[session.current]
-}
-
 export function toggleGhost(session: Session): Session {
   return { ...session, ghost: !session.ghost }
 }
 
+/** Vai atvērtajai rakstzīmei rakstzīmju kopā ir paraugs (burti ar zīmēm). */
+export function hasGuide(session: Session): boolean {
+  return getCharset(session.project.charset).guides[session.current] !== undefined
+}
+
 /**
- * Pamatburta vilcieni, ko laukumā rādīt blāvi kā orientieri. Tas ir tikai fons: šie vilcieni
- * nekad nenonāk atvērtās rakstzīmes glifā. Ņem pamatburta variantu ar to pašu indeksu, ja
- * tāds ir, citādi pēdējo uzrakstīto.
+ * Paraugs, ko laukumā rādīt blāvi: mūsu shematisks burts ar zīmi no rakstzīmju kopas datiem.
+ * Tas ir tikai fons un nav atkarīgs no lietotāja uzrakstītā; glifā tas nekad nenonāk.
  */
-export function ghostStrokes(session: Session): Stroke[] {
-  const base = baseChar(session)
-  if (!session.ghost || base === undefined) return []
-  const count = countOf(session.project, base)
-  return count === 0 ? [] : strokesOf(session.project, base, Math.min(session.variant, count - 1))
+export function guideStrokes(session: Session): readonly (readonly number[])[] {
+  if (!session.ghost) return []
+  return getCharset(session.project.charset).guides[session.current] ?? []
 }

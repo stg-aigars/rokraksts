@@ -37,6 +37,7 @@ core/         tīrs TypeScript bez DOM; testi blakus failiem (*.test.ts)
 app/          Next.js App Router: (create)/, vēlāk (card)/, k/[id]/, api/cards/
 components/   React komponentes (DrawPad, WriteFlow, Preview; vēlāk GlyphGrid, CardCanvas)
 lib/          pārlūka puses palīgkods, kas nav komponente (project-store: IndexedDB caur idb)
+scripts/      ģeneratori: letter-shapes.mjs (burtu formas), generate-guides.mjs (blāvie paraugi)
 tests/        e2e/ (Playwright), spikes/ (bibliotēku pārbaudes), fixtures/ (etalona vilcieni un
               momentuzņēmumi), snapshots.test.ts
 types/        tipu deklarācijas bibliotēkām bez saviem tipiem
@@ -158,7 +159,7 @@ Ceļš: vilcieni → `outline` → `metrics` → `font` (sakompilēti glifi) →
   neglabā nekad. `deleteVariant` neļauj izdzēst vienīgo variantu. Nemainītie variantu objekti paliek tie
   paši (kontūru kešs).
 - **Saskarne bez GlyphGrid.** Zem uzvednes ir josla: pogas "1 2 3" (atvērt variantu), "+" (pievienot),
-  "Dzēst variantu", un burtiem ar zīmi "Paraugs: a". PRD 7. sadaļā tas ir pierakstīts; režģis kā
+  "Dzēst variantu", un burtiem ar zīmi "Paraugs". PRD 7. sadaļā tas ir pierakstīts; režģis kā
   pārskats pār visu kopu nav uztaisīts. `DrawPad` atslēga ir `rakstzīme/variants`, lai laika atskaite
   sāktos no jauna.
 - **Aplis "Uzraksti vēlreiz".** Piedāvā, kad uzrakstīti visi 33 mazie burti un kādam vēl nav 3 variantu.
@@ -166,14 +167,21 @@ Ceļš: vilcieni → `outline` → `metrics` → `font` (sakompilēti glifi) →
   variantu; Tālāk drīkst arī bez vilcieniem (izlaist), Atpakaļ atver iepriekšējā burta pēdējo variantu,
   "Beigt apli" vai pēdējais burts atgriež pie pirmās neuzrakstītās rakstzīmes. Viens aplis dod vienu
   variantu; trešajam apli palaiž vēlreiz.
-- **Blāvais paraugs.** Piesaiste ir kopas dati `charset.baseChars` (ā→a, Ķ→K …). `ghostStrokes(session)`
-  dod pamatburta vilcienus (varianta indekss kā atvērtajam, citādi pēdējais); `DrawPad` tos zīmē ar
-  necaurredzamību 0,16 un nekad nenodod `onStroke`. Izvēle `session.ghost` glabājas sesijā, pēc
-  noklusējuma izslēgta.
+- **Blāvais paraugs** ir mūsu shematisks burts ar zīmi (ā č ē ģ ī ķ ļ ņ š ū ž), nevis lietotāja
+  uzrakstītais pamatburts (īpašnieka lēmums 3. posmā; PRD 5. sadaļa izlabota). Dati ir
+  `charset.guides` (`core/charsets/lv-guides.ts`, ģenerēts ar `node scripts/generate-guides.mjs` no
+  `scripts/letter-shapes.mjs`; ar roku nelabot): lauztas līnijas veselos skaitļos, pēdējais vilciens ir
+  zīme. Burtiem ķ ļ ņ komats ir zem pamatlīnijas un nav savienots ar burtu, mazajam ģ zīme ir augšā.
+  `guideStrokes(session)` → `DrawPad` prop `guide`, zīmēts ar necaurredzamību 0,16; `onStroke` to
+  neredz, tāpēc glifā tas nenonāk. `session.ghost` pēc noklusējuma ir ieslēgts, poga "Paraugs" to
+  izslēdz, un izvēle glabājas sesijā. Lielajiem burtiem paraugu vēl nav (4. posms: jāpapildina
+  `letter-shapes.mjs`). Tās pašas formas lieto etalona ģenerators, tāpēc pēc formu maiņas jāpārģenerē
+  abi un `strokes.json` izmaiņas jāpārskata.
 - **Priekšskatījums** lieto nemainīgu `PREVIEW_SEED` = 1. Pievienojot variantu, burti rindā pabīdās
   (cits platums), bet pārējo burtu kontūra, rotācija un mērogs paliek.
 - **E2E:** `tests/e2e/variants.spec.ts` (tikai telefona projektā): variantu pievienošana, pārzīmēšana,
-  dzēšana; blāvais paraugs; visi 33 burti, aplis un pangramma bez tukšiem rāmīšiem.
+  dzēšana; blāvais paraugs (arī komata vieta burtiem ķ un ģ); visi 33 burti, aplis un pangramma bez
+  tukšiem rāmīšiem.
 - **Nav pārbaudīts:** īstā telefonā; trices izskats ar īstu rokrakstu (etalons ir ģenerēts).
 
 ## Bibliotēku pārbaude (0. posms, 2026-11-16)

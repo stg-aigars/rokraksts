@@ -6,7 +6,6 @@ import { getCharset } from '@/core/charsets'
 import {
   addStroke,
   addVariant,
-  baseChar,
   canAddVariant,
   canDeleteVariant,
   canGoBack,
@@ -16,9 +15,10 @@ import {
   currentStrokes,
   deleteVariant,
   endLap,
-  ghostStrokes,
+  guideStrokes,
   goBack,
   goNext,
+  hasGuide,
   progress,
   selectVariant,
   startLap,
@@ -106,8 +106,6 @@ export function WriteFlow() {
   const count = variantCount(session)
   // Atvērts jauns, vēl tukšs variants: tam ir sava poga saraksta vietā `session.variant`.
   const slots = count + (session.fresh ? 1 : 0)
-  const base = baseChar(session)
-  const baseWritten = base !== undefined && session.project.glyphs[base] !== undefined
   const lapOffered = canStartLap(session)
 
   return (
@@ -163,15 +161,14 @@ export function WriteFlow() {
         >
           Dzēst variantu
         </button>
-        {base !== undefined ? (
+        {hasGuide(session) ? (
           <button
             type="button"
-            aria-pressed={session.ghost && baseWritten}
-            disabled={!baseWritten}
-            className={`${small} ml-auto ${session.ghost && baseWritten ? 'bg-ink text-white' : 'bg-white'}`}
+            aria-pressed={session.ghost}
+            className={`${small} ml-auto ${session.ghost ? 'bg-ink text-white' : 'bg-white'}`}
             onClick={() => update(toggleGhost)}
           >
-            Paraugs: {base}
+            Paraugs
           </button>
         ) : null}
       </div>
@@ -195,7 +192,7 @@ export function WriteFlow() {
         <DrawPad
           key={`${char}/${session.variant}`}
           strokes={strokes}
-          ghost={ghostStrokes(session)}
+          guide={guideStrokes(session)}
           onStroke={(stroke) => update((s) => addStroke(s, stroke))}
           label={`Zīmēšanas laukums: ${charset.prompt(char)}`}
         />

@@ -2,14 +2,14 @@
 
 import { useRef } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
-import { PAD, PAD_HEIGHT, normalizePressure, strokePath, toFontUnits, toPadY } from '@/core/pad'
+import { PAD, PAD_HEIGHT, normalizePressure, polylinePath, strokePath, toFontUnits, toPadY } from '@/core/pad'
 import type { Point, Stroke } from '@/core/types'
 
 type Props = {
   /** Jau uzrakstītie vilcieni (fonta vienībās). */
   strokes: Stroke[]
-  /** Blāvais paraugs: pamatburta vilcieni kā fons. Tikai attēlošanai; glifā tie nenonāk. */
-  ghost?: Stroke[]
+  /** Blāvais paraugs: shematisks burts ar zīmi kā lauztas līnijas. Tikai fons; glifā nenonāk. */
+  guide?: readonly (readonly number[])[]
   /** Izsauc, kad vilciens pabeigts. */
   onStroke: (stroke: Stroke) => void
   /** Nosaukums ekrāna lasītājiem. */
@@ -27,7 +27,7 @@ const LINES = [
  * Zīmēšanas laukums (PRD 6. sadaļas 1. solis). Punkti uzreiz top fonta vienībās;
  * vilcienus rāda kā vienkāršu līniju, kontūras rēķina 2. posms.
  */
-export function DrawPad({ strokes, ghost = [], onStroke, label }: Props) {
+export function DrawPad({ strokes, guide = [], onStroke, label }: Props) {
   const svgRef = useRef<SVGSVGElement>(null)
   const liveRef = useRef<SVGPathElement>(null)
   const active = useRef<{ pointerId: number; points: Point[] } | null>(null)
@@ -82,7 +82,7 @@ export function DrawPad({ strokes, ghost = [], onStroke, label }: Props) {
       aria-label={label}
       data-testid="drawpad"
       data-strokes={strokes.length}
-      data-ghost={ghost.length}
+      data-guide-strokes={guide.length}
       viewBox={`0 0 ${PAD.width} ${PAD_HEIGHT}`}
       // Izmērs: lielākais taisnstūris ar laukuma proporciju, kas ietilpst apkārtējā konteinerā.
       style={{
@@ -126,18 +126,18 @@ export function DrawPad({ strokes, ghost = [], onStroke, label }: Props) {
             fillOpacity={0.18}
           />
         ))}
-        {ghost.length > 0 ? (
+        {guide.length > 0 ? (
           <g
             data-testid="ghost"
             fill="none"
             stroke="currentColor"
-            strokeOpacity={0.16}
+            opacity={0.16}
             strokeWidth={24}
             strokeLinecap="round"
             strokeLinejoin="round"
           >
-            {ghost.map((stroke, i) => (
-              <path key={i} data-ghost-stroke d={strokePath(stroke)} />
+            {guide.map((points, i) => (
+              <path key={i} d={polylinePath(points)} />
             ))}
           </g>
         ) : null}

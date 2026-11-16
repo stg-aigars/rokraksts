@@ -26,8 +26,9 @@ export type Charset = {
   /** Biežākie burti dilstošā secībā; ar tiem sākas variantu aplis. */
   frequentChars: readonly string[]
   /**
-   * Burts ar zīmi -> tā pamatburts (ā -> a). Lieto tikai blāvajam paraugam zīmēšanas laukumā;
-   * glifi no pamatburta nekad netiek salikti.
+   * Blāvie paraugi zīmēšanas laukumam: rakstzīme -> shematisks burts kopā ar zīmi kā lauztas
+   * līnijas [x0, y0, x1, y1, ...] fonta vienībās. Tas ir orientieris no mūsu puses (kur likt
+   * garumzīmi, jumtiņu vai komatu), nevis lietotāja rokraksts; glifā tas nekad nenonāk.
    */
-  baseChars: Readonly<Record<string, string>>
+  guides: Readonly<Record<string, readonly (readonly number[])[]>>
 }

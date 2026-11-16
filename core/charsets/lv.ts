@@ -1,3 +1,4 @@
+import { lvGuides } from './lv-guides'
 import type { CharGroup, Charset } from './types'
 
 // Latviešu rakstzīmju kopa (PRD 5. sadaļa): 99 rakstzīmes.
@@ -35,25 +36,6 @@ const punctuationNames: Record<string, string> = {
   '♥': 'sirsniņu',
 }
 
-// Pamatburti blāvajam paraugam (PRD 5. sadaļa): rakstot "ā", fonā var parādīt tikko uzrakstīto "a".
-const lowerBases: Record<string, string> = {
-  ā: 'a',
-  č: 'c',
-  ē: 'e',
-  ģ: 'g',
-  ī: 'i',
-  ķ: 'k',
-  ļ: 'l',
-  ņ: 'n',
-  š: 's',
-  ū: 'u',
-  ž: 'z',
-}
-const baseChars: Record<string, string> = { ...lowerBases }
-for (const [char, base] of Object.entries(lowerBases)) {
-  baseChars[char.toLocaleUpperCase('lv')] = base.toLocaleUpperCase('lv')
-}
-
 function prompt(char: string): string {
   const name = punctuationNames[char]
   if (name) return `Raksti ${name}`
@@ -76,5 +58,6 @@ export const lv: Charset = {
   // Pangramma no PRD 12. sadaļas ar mazajiem burtiem un bez punkta.
   sampleText: 'glāžšķūņa rūķīši dzērumā čiepj baha koncertflīģeļu vākus',
   frequentChars: [...'aisetuā'],
-  baseChars,
+  // Burtiem ķ ļ ņ ģ paraugs rāda komatu, kas nav savienots ar burtu; mazajam ģ zīme ir augšā.
+  guides: lvGuides,
 }

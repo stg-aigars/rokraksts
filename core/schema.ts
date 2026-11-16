@@ -67,7 +67,7 @@ export const sessionSchema = z.object({
     .default(0),
   fresh: z.boolean().default(false),
   lap: z.boolean().default(false),
-  ghost: z.boolean().default(false),
+  ghost: z.boolean().default(true),
 }) satisfies z.ZodType<Session>
 
 /** Atgriež sesiju vai null, ja dati neatbilst shēmai. */

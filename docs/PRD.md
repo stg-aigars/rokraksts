@@ -87,9 +87,9 @@ Lietotājs pats uzraksta katru rakstzīmi, arī burtus ar garumzīmēm, jumtiņi
 
 - **Katrs burts ir patstāvīgs glifs.** "ā" ir atsevišķs zīmējums ar savu kodpunktu (U+0101), nevis "a" plus zīme. Tā saglabājas cilvēka paša veids, kā viņš velk garumzīmi vai komatu un kur to novieto.
 - **Alfabēta secība.** Uzvednes iet secībā a, ā, b, c, č …, lai burts ar zīmi tiktu rakstīts uzreiz pēc pamatburta un sanāktu tajā pašā rokā.
-- **Blāvs paraugs (pēc izvēles).** Rakstot "ā", laukumā var ieslēgt blāvu tikko uzrakstītā "a" attēlu kā orientieri. Tas ir tikai fons; glifā nonāk tikai jaunie vilcieni.
+- **Blāvs paraugs.** Rakstot burtu ar zīmi ("ā", "č", "ķ" …), laukumā blāvi redzams mūsu shematisks šī burta paraugs kopā ar zīmi pareizajā vietā. Tas ir orientieris no lietotnes puses, nevis lietotāja uzrakstītais pamatburts; pēc noklusējuma ieslēgts, un to var izslēgt. Tas ir tikai fons; glifā nonāk tikai lietotāja vilcieni.
 - **Vieta zīmēm.** Laukumā ir brīva josla virs augšējās līnijas (Ā, Č, ģ) un zem pamatlīnijas (ķ, ļ, ņ, Ģ). Fonta vertikālo metriku aprēķina no faktiski uzzīmētā augstākā un zemākā punkta, lai zīmes netiktu nogrieztas.
-- **Komats, nevis sedija.** Uzvednes paraugs burtiem ķ ļ ņ ģ rāda komatu, kas nav savienots ar burtu; mazajam ģ zīme ir augšā.
+- **Komats, nevis sedija.** Blāvais paraugs burtiem ķ ļ ņ ģ rāda komatu, kas nav savienots ar burtu; mazajam ģ zīme ir augšā.
 - **Normalizācija.** Ievadīto tekstu pirms attēlošanas normalizē uz NFC, lai "a + kombinējamā garumzīme" kļūtu par "ā".
 - **Aizstāšana.** `"` un `”` attēlo ar “ glifu, `—` ar `–`, `…` ar trim punktiem.
 - **Trūkstošas zīmes.** Neuzrakstīts "ā" nekad netiek aizstāts ar "a". Jebkura neuzrakstīta zīme bloķē kopīgošanu, līdz tā uzrakstīta vai izņemta no teksta. Emocijzīmes attēlo ar sistēmas fontu.
@@ -315,7 +315,7 @@ Lielākais risks ir rokraksta kvalitāte, zīmējot ar pirkstu mazā ekrānā; t
 | --- | --- |
 | Ar pirkstu rakstīts izskatās neveikli un nelīdzinās rokrakstam | Liels laukums, vilcienu izlīdzināšana, viegla pārzīmēšana, regulējams biezums; agrīns lietojamības tests |
 | 99 zīmes un varianti ir par daudz, cilvēki pamet pusceļā | Pirmā kartīte pēc 33 mazajiem burtiem; pārējās zīmes tikai tad, kad tās vajadzīgas; varianti ir izvēles aplis |
-| Burts ar zīmi (ā) sanāk manāmi citāds nekā pamatburts (a) | Alfabēta secība (ā uzreiz pēc a), blāvais pamatburta paraugs, viegla pārzīmēšana |
+| Burts ar zīmi (ā) sanāk manāmi citāds nekā pamatburts (a) | Alfabēta secība (ā uzreiz pēc a), viegla pārzīmēšana |
 | Garumzīmes un komati tiek nogriezti vai saduras ar blakus rindām | Brīva josla laukumā, metrika no faktiskā augstuma, rindstarpa ar rezervi |
 | `opentype.js` neprot ierakstīt vajadzīgās OpenType funkcijas | MVP tās nevajag; variantiem fontā rezervē `fontTools` |
 | Sveša rokraksta atdarināšana, nepiemērots saturs publiskās saitēs | Nav paraksta glifa, `noindex`, ziņošanas poga, dzēšana, termiņš |

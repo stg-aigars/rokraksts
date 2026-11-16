@@ -3,7 +3,6 @@ import { getCharset, lapOrder, requiredChars } from './charsets'
 import {
   addStroke,
   addVariant,
-  baseChar,
   canAddVariant,
   canDeleteVariant,
   canGoBack,
@@ -14,9 +13,10 @@ import {
   currentStrokes,
   deleteVariant,
   endLap,
-  ghostStrokes,
+  guideStrokes,
   goBack,
   goNext,
+  hasGuide,
   normalizeSession,
   progress,
   promptChars,
@@ -393,43 +393,38 @@ describe('aplis "Uzraksti vēlreiz"', () => {
 })
 
 describe('blāvais paraugs', () => {
-  it('pamatburta piesaiste nāk no rakstzīmju kopas datiem', () => {
-    const s = goNext(addStroke(fresh(), stroke(100)))
+  const atMacron = () => goNext(addStroke(fresh(), stroke(100)))
+
+  it('ir mūsu orientieris no rakstzīmju kopas datiem, nevis lietotāja uzrakstītais pamatburts', () => {
+    const s = atMacron()
     expect(s.current).toBe('ā')
-    expect(baseChar(s)).toBe('a')
-    expect(baseChar(fresh())).toBeUndefined()
+    expect(hasGuide(s)).toBe(true)
+    expect(guideStrokes(s)).toBe(lv.guides['ā'])
+    // Paraugs nav atkarīgs no tā, vai un kā uzrakstīts "a".
+    const noBase = { ...fresh(), current: 'ā' }
+    expect(guideStrokes(noBase)).toBe(lv.guides['ā'])
   })
 
-  it('pēc noklusējuma izslēgts; ieslēdzot rāda pamatburta vilcienus', () => {
-    const s = goNext(addStroke(fresh(), stroke(100)))
-    expect(ghostStrokes(s)).toEqual([])
-    const on = toggleGhost(s)
-    expect(ghostStrokes(on)).toEqual([stroke(100)])
-    expect(ghostStrokes(toggleGhost(on))).toEqual([])
+  it('pēc noklusējuma ieslēgts; to var izslēgt un ieslēgt atpakaļ', () => {
+    const s = atMacron()
+    expect(s.ghost).toBe(true)
+    const off = toggleGhost(s)
+    expect(guideStrokes(off)).toEqual([])
+    expect(guideStrokes(toggleGhost(off))).toBe(lv.guides['ā'])
   })
 
-  it('paraugs ir tikai fons: glifā nonāk tikai jaunie vilcieni', () => {
-    let s = toggleGhost(goNext(addStroke(fresh(), stroke(100))))
-    s = addStroke(s, stroke(500))
+  it('burtam bez zīmes parauga nav', () => {
+    expect(hasGuide(fresh())).toBe(false)
+    expect(guideStrokes(fresh())).toEqual([])
+  })
+
+  it('paraugs ir tikai fons: glifā nonāk tikai lietotāja vilcieni', () => {
+    const s = addStroke(atMacron(), stroke(500))
     expect(s.project.glyphs['ā']).toEqual({ char: 'ā', variants: [{ strokes: [stroke(500)] }] })
-    expect(s.project.glyphs['a']).toEqual({ char: 'a', variants: [{ strokes: [stroke(100)] }] })
-  })
-
-  it('burtam bez pamatburta un neuzrakstītam pamatburtam parauga nav', () => {
-    const on = toggleGhost(addStroke(fresh(), stroke(100)))
-    expect(ghostStrokes(on)).toEqual([])
-    // ā atvērts, bet a nav uzrakstīts.
-    expect(ghostStrokes({ ...toggleGhost(fresh()), current: 'ā' })).toEqual([])
-  })
-
-  it('rakstot burta otro variantu, paraugs ir pamatburta atbilstošais variants, ja tāds ir', () => {
-    let s = withVariants(100, 200)
-    s = addStroke(goNext(s), stroke(500))
-    s = toggleGhost(addVariant(s))
-    expect(ghostStrokes(s)).toEqual([stroke(200)])
-    s = addVariant(addStroke(s, stroke(600)))
-    // Trešā a varianta nav: rāda pēdējo esošo.
-    expect(ghostStrokes(s)).toEqual([stroke(200)])
+    expect(Object.keys(s.project.glyphs)).toEqual(['a', 'ā'])
+    // Kamēr nav vilcienu, burts nav uzrakstīts, lai arī paraugs ir redzams.
+    expect(canGoNext(atMacron())).toBe(false)
+    expect(progress(atMacron())).toEqual({ done: 1, total: 99 })
   })
 })
 
@@ -445,6 +440,7 @@ describe('sesijas glabāšana ar variantiem', () => {
     const old = { project: s.project, current: 'a' }
     const loaded = normalizeSession(parseSession(JSON.parse(JSON.stringify(old)))!)
     expect(loaded).toEqual(s)
+    expect(loaded.ghost).toBe(true)
     const unwritten = normalizeSession(parseSession({ project: s.project, current: 'ā' })!)
     expect([unwritten.variant, unwritten.fresh]).toEqual([0, true])
   })

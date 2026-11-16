@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { PAD, PAD_HEIGHT, defaultMetrics, normalizePressure, strokePath, toFontUnits, toPadY } from './pad'
+import { PAD, PAD_HEIGHT, defaultMetrics, normalizePressure, polylinePath, strokePath, toFontUnits, toPadY } from './pad'
 
 const size = { width: 330, height: 420 }
 
@@ -95,5 +95,13 @@ describe('vilciena ceļš attēlošanai', () => {
 
   it('viens punkts dod nulles garuma posmu, ko apaļie gali rāda kā punktu', () => {
     expect(strokePath({ points: [{ x: 5, y: 950, t: 0 }] })).toBe('M5 0h0')
+  })
+})
+
+describe('blāvā parauga ceļš', () => {
+  it('lauzta līnija fonta vienībās kļūst par SVG ceļu laukuma koordinātās (y uz leju)', () => {
+    expect(polylinePath([430, 598, 650, 610])).toBe('M430 352L650 340')
+    expect(polylinePath([0, 950, 10, 0, 20, -450])).toBe('M0 0L10 950L20 1400')
+    expect(polylinePath([])).toBe('')
   })
 })
