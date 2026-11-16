@@ -17,6 +17,7 @@ import {
 import type { Session } from '@/core/project'
 import { loadSession, saveSession } from '@/lib/project-store'
 import { DrawPad } from './DrawPad'
+import { Preview } from './Preview'
 
 type SaveState = 'saved' | 'saving' | 'error'
 
@@ -109,6 +110,8 @@ export function WriteFlow() {
           label={`Zīmēšanas laukums: ${charset.prompt(char)}`}
         />
       </div>
+
+      <Preview project={session.project} />
 
       <div className="flex gap-2">
         <button type="button" className={secondary} disabled={!canGoBack(session)} onClick={() => update(goBack)}>

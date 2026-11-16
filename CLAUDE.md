@@ -26,16 +26,18 @@ Pirms katra commit jāiziet tīri: `lint`, `typecheck`, `test`, `build`. CI papi
 - Saskarnes teksti, testu nosaukumi un komentāri ir latviski; identifikatori kodā angliski.
 - Viss glabājas GitHub; lokālu kopiju nav, tāpēc darbs ir pabeigts tikai tad, kad tas ir nosūtīts.
 
-**Stāvoklis:** 0. posms (pamats) un 1. posms (zīmēšanas laukums) pabeigti. Nākamais ir 2. posms, kodols.
+**Stāvoklis:** 0. posms (pamats), 1. posms (zīmēšanas laukums) un 2. posms (kodols) pabeigti.
+Nākamais ir 3. posms, latviešu burti (blāvais paraugs, variantu ievade un maiņa, "trice").
 
 ## Struktūra un robežas
 
 ```
 core/         tīrs TypeScript bez DOM; testi blakus failiem (*.test.ts)
 app/          Next.js App Router: (create)/, vēlāk (card)/, k/[id]/, api/cards/
-components/   React komponentes (DrawPad, WriteFlow; vēlāk GlyphGrid, Preview, CardCanvas)
+components/   React komponentes (DrawPad, WriteFlow, Preview; vēlāk GlyphGrid, CardCanvas)
 lib/          pārlūka puses palīgkods, kas nav komponente (project-store: IndexedDB caur idb)
-tests/        e2e/ (Playwright), spikes/ (bibliotēku pārbaudes), fixtures/
+tests/        e2e/ (Playwright), spikes/ (bibliotēku pārbaudes), fixtures/ (etalona vilcieni un
+              momentuzņēmumi), snapshots.test.ts
 types/        tipu deklarācijas bibliotēkām bez saviem tipiem
 ```
 
@@ -77,6 +79,53 @@ types/        tipu deklarācijas bibliotēkām bez saviem tipiem
 - E2E gaida `data-state="saved"` uz `save-state` elementa pirms pārlādes; skāriena tests (CDP
   `Input.dispatchTouchEvent`) iet tikai telefona projektā.
 
+## Kodols (2. posms)
+
+Ceļš: vilcieni → `outline` → `metrics` → `font` (sakompilēti glifi) → `layout` → `render-svg`.
+
+- **`core/outline.ts`.** Katrs vilciens kļūst par poligonu ar `perfect-freehand` (pildspalva
+  `PEN_SIZE` = 44 vienības × `style.strokeWidth`). Spiedienu lieto tikai tad, ja `p` ir visiem vilciena
+  punktiem; citādi platumu rēķinām paši no ātruma pēc `t` (lēni = biezāk), nevis ar bibliotēkas
+  `simulatePressure`, kas skatās tikai uz punktu attālumu un tāpēc ir atkarīga no ierīces paraugu
+  biežuma. Punkti ar vienādu `t` platumu nemaina.
+- **Apvienošana.** Visus burta vilcienus apvieno ar vienu `polygon-clipping` `union`. Bibliotēka viena
+  poligona paškrustojumus šķeļ pēc pāra-nepāra likuma, tāpēc vieta, kur vilciens pārklāj pats sevi, var
+  iznākt caura: caurumus, ap kuriem apvijas kāds vilciens (apvijumu skaits nav 0), aizpilda un tad
+  apvieno vēlreiz; īstie caurumi (o, cilpas iekšpuse) paliek. Ārējās kontūras iet pret
+  pulksteņrādītāja virzienu (y uz augšu), caurumi pa to. Ja bibliotēka met kļūdu, vilcieni paliek
+  neapvienoti ar vienādu virzienu (aizpildījums pareizs, tikai ar pārklājumiem).
+- **Vienkāršošana.** Poligonu pārvērš kubiskās Bezjē līknēs: stūri (pagrieziens virs 50°) ir obligāti
+  mezgli, starp tiem līkni dala, kamēr kļūda pārsniedz pielaidi. Pielaides 1,5 → 2,5 → 4 → 6 vienības
+  izmēģina pēc kārtas, līdz glifs ietilpst 60 punktos. **"Punkts" šeit ir mezgls (segmenta
+  galapunkts); vadības punktus neskaita.** Visi 33 etalona burti ietilpst (10–59 mezgli).
+- **`core/metrics.ts`.** Platums = robežkaste + `style.spacing` × 1000 katrā pusē (60 vienības); vieta
+  laukumā platumu neietekmē. Augšējā un apakšējā robeža ir uzzīmētā galējie punkti, bet nekad nav
+  šaurāka par laukuma līnijām (700 un −250), lai rindas augstums nelēkātu, kamēr uzrakstīti tikai zemi
+  burti. `project.metrics` projektā netiek pārrakstīts; metriku vienmēr rēķina `compileFont`.
+- **`core/font.ts`.** `compileFont(project, cache)` dod `CompiledFont`: katram variantam SVG ceļš
+  (y uz leju, pamatlīnija 0, kreisā atstarpe no x = 0), platums un robežkaste. Kešs ir `WeakMap` pēc
+  varianta objekta; tas strādā, jo `core/project.ts` jaunu objektu izveido tikai mainītajam burtam.
+  Kontūras nekur neglabājam.
+- **`core/layout.ts`.** NFC → aizstāšanas no kopas → atstarpju virknes saplūst → laušana pa vārdiem
+  (pārāk garu vārdu pa burtiem). Atstarpe 300, neuzrakstīta zīme 420 vienības, rindstarpa 1,15 ×
+  (augša − apakša). Vienmēr pirmais variants; variantu maiņa un sēkla nāk 3. posmā. Neuzrakstīta
+  rakstzīme nonāk `layout.missing` ar rezervētu vietu un nekad netiek aizstāta ar citu glifu.
+- **`core/render-svg.ts`.** Katrs izmantotais glifs vienreiz `<defs>`, tekstā `<use x y>`; neuzrakstītās
+  zīmes ir blāvi rāmīši (`showMissing`). Ja vienā lapā ir vairāki SVG, katram vajag savu `idPrefix`.
+- **Determinisms.** `layout` un `render-svg` lieto tikai veselu skaitļu aritmētiku un virkņu salikšanu,
+  tāpēc tie ir bait-identiski visur. `outline` lieto peldošā punkta matemātiku (`Math.hypot`, `exp`,
+  `acos`) un tiek rēķināts tikai autora ierīcē; kartītē ceļo jau noapaļoti ceļi (`Card.outlines`).
+  Serverī kontūras no vilcieniem nedrīkst pārrēķināt.
+- **Priekšskatījums.** `components/Preview.tsx` zem laukuma rāda `charset.sampleText` (pangramma ar
+  mazajiem burtiem, bez punkta) un pārrēķinās pēc katras sesijas izmaiņas. E2E:
+  `tests/e2e/preview.spec.ts`, tikai telefona projektā, raksta ar CDP skārieniem.
+- **Etalons.** `tests/fixtures/strokes.json` ģenerē `node tests/fixtures/generate-strokes.mjs` (33 mazie
+  burti un gadījumi `cilpa`, `spiediens`, `punkts`, `svikajums`); testi lasa tikai JSON caur
+  `tests/fixtures/strokes.ts`. Momentuzņēmumi ir `tests/fixtures/snapshots/` (skatāmi SVG un
+  `konturas.txt`); apzinātu izmaiņu pēc tos atjauno ar `npm test -- -u` un pārskata acīm.
+- **Ātrums.** Etalona glifs uz izstrādes mašīnas pārrēķinās vidēji ap 2 ms, lēnākais (švīkājums) ap
+  5 ms; tests prasa zem 25 ms (PRD slieksnis telefonam ir 50 ms). Īstā telefonā vēl nav mērīts.
+
 ## Bibliotēku pārbaude (0. posms, 2026-11-16)
 
 Pārbaudīts ar testiem `tests/spikes/font-libs.test.ts`; tie paliek kā sargs pret atjauninājumiem.
@@ -85,8 +134,8 @@ Pārbaudīts ar testiem `tests/spikes/font-libs.test.ts`; tie paliek kā sargs p
 | --- | --- | --- |
 | `opentype.js` | 2.0.0 | Ieraksta OTF ar visiem 99 kodpunktiem. GSUB: `liga` un `salt`/`aalt` strādā. **`calt` augstā līmeņa API klusi ignorē** (nekas netiek ierakstīts, kļūdas nav). Bibliotēkā ir zema līmeņa 5. un 6. tipa tabulu rakstītāji, bet tie nav pārbaudīti. MVP to nevajag. |
 | `wawoff2` | 2.0.1 | Node vidē saspiež un atspiež WOFF2. Pārlūkā (WASM ielāde caur Next.js) vēl nav pārbaudīts; jāpārbauda 7. posmā. |
-| `perfect-freehand` | 1.2.3 | Instalēts, lietosim 2. posmā. |
-| `polygon-clipping` | 0.15.7 | Instalēts kā pirmā izvēle kontūru apvienošanai (mazāks par `paper.js`, strādā bez DOM). |
+| `perfect-freehand` | 1.2.3 | Lietojam `core/outline.ts` ar pašu aprēķinātu spiedienu (`simulatePressure: false`). |
+| `polygon-clipping` | 0.15.7 | Lietojam kontūru apvienošanai (mazāks par `paper.js`, strādā bez DOM). Paškrustojumiem pāra-nepāra likums; skat. "Kodols". |
 | `zod` 4, `idb` 8 | | Instalēti, lietosim 1. un 6. posmā. |
 
 Piezīmes:
