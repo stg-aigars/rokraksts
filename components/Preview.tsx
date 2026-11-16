@@ -17,9 +17,16 @@ type Props = {
 const LINE_WIDTH = 12500
 
 /**
+ * Nemainīga sēkla: variantu secība un trice ir atkarīga tikai no tās un burta vietas tekstā,
+ * tāpēc priekšskatījums nelēkā pēc katra vilciena. Sēklu mainīs kartītes redaktors (5. posms).
+ */
+const PREVIEW_SEED = 1
+
+/**
  * Dzīvs priekšskatījums lietotāja rokrakstā (PRD 4. sadaļas 3. solis). Kontūras pārrēķina no
- * vilcieniem pēc katras izmaiņas; kešs pārrēķina tikai mainīto burtu. Neuzrakstīta rakstzīme
- * ir tukšs rāmītis un nekad netiek aizstāta ar citu burtu.
+ * vilcieniem pēc katras izmaiņas; kešs pārrēķina tikai mainīto variantu. Atkārtoti burti ņem
+ * dažādus variantus, un katram glifam ir viegla trice. Neuzrakstīta rakstzīme ir tukšs rāmītis
+ * un nekad netiek aizstāta ar citu burtu.
  */
 export function Preview({ project, text }: Props) {
   const [cache] = useState(createGlyphCache)
@@ -28,7 +35,7 @@ export function Preview({ project, text }: Props) {
 
   const { svg, written, missing } = useMemo(() => {
     const font = compileFont(project, cache)
-    const layout = layoutText(sample, font, charset, { maxWidth: LINE_WIDTH })
+    const layout = layoutText(sample, font, charset, { maxWidth: LINE_WIDTH, seed: PREVIEW_SEED })
     return {
       svg: renderSvg(layout, font, { idPrefix: 'paraugs' }),
       written: layout.glyphs.length,

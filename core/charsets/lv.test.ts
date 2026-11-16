@@ -73,4 +73,17 @@ describe('latviešu rakstzīmju kopa', () => {
     for (const c of 'āčēģīķļņšūž') expect(letters, c).toContain(c)
     expect(lv.sampleText.normalize('NFC')).toBe(lv.sampleText)
   })
+
+  it('pamatburti blāvajam paraugam: katram burtam ar zīmi savs pamatburts no kopas', () => {
+    expect(Object.keys(lv.baseChars).filter((c) => group('lower').includes(c)).join('')).toBe('āčēģīķļņšūž')
+    expect([...'āčēģīķļņšūž'].map((c) => lv.baseChars[c]).join('')).toBe('acegiklnsuz')
+    expect(lv.baseChars['Ķ']).toBe('K')
+    for (const [char, base] of Object.entries(lv.baseChars)) {
+      expect(chars).toContain(char)
+      expect(chars).toContain(base)
+      // Alfabēta secībā pamatburts ir tieši pirms burta ar zīmi: tas ir "tikko uzrakstīts".
+      expect(chars.indexOf(base)).toBe(chars.indexOf(char) - 1)
+    }
+    expect(lv.baseChars['a']).toBeUndefined()
+  })
 })

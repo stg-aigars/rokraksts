@@ -25,4 +25,9 @@ export type Charset = {
   sampleText: string
   /** Biežākie burti dilstošā secībā; ar tiem sākas variantu aplis. */
   frequentChars: readonly string[]
+  /**
+   * Burts ar zīmi -> tā pamatburts (ā -> a). Lieto tikai blāvajam paraugam zīmēšanas laukumā;
+   * glifi no pamatburta nekad netiek salikti.
+   */
+  baseChars: Readonly<Record<string, string>>
 }

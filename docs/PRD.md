@@ -118,10 +118,10 @@ Tas dod trīs lietas: līnijas biezumu var mainīt pēc uzzīmēšanas, vilcienu
 
 Burti ir atsevišķi, un dabiskumu dod varianti: katru burtu var uzrakstīt līdz 3 reizēm, un izkārtotājs variantus maina, lai divi vienādi burti tekstā neizskatītos identiski.
 
-- **Variantu ievade (MVP).** Pirmais variants ir obligāts, otrais un trešais pēc izvēles jebkurai rakstzīmei, arī burtiem ar zīmēm, cipariem un pieturzīmēm. Glifu režģī katram burtam redzams variantu skaits; pieskaroties var pievienot, pārzīmēt vai dzēst variantu.
+- **Variantu ievade (MVP).** Pirmais variants ir obligāts, otrais un trešais pēc izvēles jebkurai rakstzīmei, arī burtiem ar zīmēm, cipariem un pieturzīmēm. Glifu režģī katram burtam redzams variantu skaits; pieskaroties var pievienot, pārzīmēt vai dzēst variantu. Kopš 3. posma to dara variantu josla rakstīšanas plūsmā (pogas "1 2 3 +" un "Dzēst variantu" zem uzvednes); glifu režģis kā pārskats pār visu kopu paliek vēlākam posmam.
 - **Otrais aplis.** Pēc alfabēta pabeigšanas lietotne piedāvā "Uzraksti vēlreiz" un sāk ar latviešu tekstā biežākajiem burtiem (a, i, s, e, t, u, ā). Apli var pārtraukt jebkurā brīdī.
 - **Varianta izvēle (MVP).** Izkārtotājs katrai rakstzīmei tur skaitītāju un ņem nākamo variantu pēc kārtas; sākuma nobīde nāk no kartītes sēklas. Ja burtam ir vismaz 2 varianti, divas secīgas tā paša burta parādīšanās vienmēr atšķiras.
-- **"Trice" (MVP).** Papildus variantiem katram glifam pieliek nelielu nobirzi: rotācija līdz ±1,5°, mērogs līdz ±2%, pamatlīnija līdz ±1% no em. Nobirzes nāk no pseidonejauša ģeneratora ar to pašu sēklu, tāpēc kartīte visur izskatās vienādi.
+- **"Trice" (MVP).** Papildus variantiem katram glifam pieliek nelielu nobirzi: rotācija līdz ±1,5°, mērogs līdz ±2%, pamatlīnija līdz ±1% no em. Nobirzes nāk no pseidonejauša ģeneratora ar to pašu sēklu, tāpēc kartīte visur izskatās vienādi. Rotāciju un mērogu izsaka ar veseliem skaitļiem tūkstošdaļās un SVG izvada kā `matrix(...)`, bez trigonometrijas funkcijām, kuru rezultāts starp dzinējiem var atšķirties.
 - **Eksportētais fonts.** MVP fonta failā ir katras rakstzīmes pirmais variants. Variantu maiņa pašā fontā prasa OpenType funkciju `calt` un nāk pēc MVP (skat. 6. sadaļas pārbaudi).
 - **Ieejas un izejas palīgpunkti.** Zīmēšanas laukumā uz pamatlīnijas kreisajā un labajā malā ir divi blāvi punkti. Kas grib saistītāku rakstu, sāk un beidz vilcienu tajos; kas negrib, tos ignorē.
 - **Ligatūras (vēlāk).** Atsevišķi rakstīti biežākie burtu pāri; kuri, nosaka ar biežuma analīzi latviešu tekstu korpusā.

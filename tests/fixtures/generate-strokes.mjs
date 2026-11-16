@@ -177,6 +177,32 @@ const shapes = {
 
 const glyphs = Object.fromEntries(Object.entries(shapes).map(([char, list]) => [char, glyph(char, list)]))
 
+// --- otrais un trešais variants (3. posms) ---
+// Cilvēks to pašu burtu otrreiz uzraksta nedaudz citādi: mazliet platāku vai šaurāku, ar citu
+// slīpumu, nedaudz pabīdītu. Pamatlīnija paliek vietā. Biežākajiem burtiem (charset.frequentChars)
+// ir trīs varianti, burtiem r un ķ divi; pārējiem viens.
+
+const extraVariants = { a: 2, i: 2, s: 2, e: 2, t: 2, u: 2, ā: 2, r: 1, ķ: 1 }
+
+function vary(list, name) {
+  const random = makeRandom([...name].reduce((h, c) => Math.imul(h, 131) + c.codePointAt(0), 11))
+  const sx = 0.92 + random() * 0.16
+  const sy = 0.95 + random() * 0.1
+  const slant = (random() - 0.5) * 0.14
+  const dx = (random() - 0.5) * 40
+  return list.map((shape) => shape.map(([x, y]) => [550 + (x - 550) * sx + y * slant + dx, y * sy]))
+}
+
+const variants = Object.fromEntries(
+  Object.entries(extraVariants).map(([char, count]) => [
+    char,
+    Array.from({ length: count }, (_, i) => {
+      const name = `${char}~${i + 2}`
+      return glyph(name, vary(shapes[char], name))
+    }),
+  ]),
+)
+
 // --- īpaši gadījumi kontūru kodam ---
 
 const cases = {
@@ -204,8 +230,9 @@ const cases = {
 
 const data = {
   description:
-    'Etalona vilcieni (ģenerēti ar generate-strokes.mjs): visi 33 latviešu mazie burti un īpaši gadījumi. Punkti ir fonta vienībās, t ir ms no burta pirmā vilciena sākuma.',
+    'Etalona vilcieni (ģenerēti ar generate-strokes.mjs): visi 33 latviešu mazie burti (glyphs), otrais un trešais variants biežākajiem burtiem (variants) un īpaši gadījumi (cases). Punkti ir fonta vienībās, t ir ms no burta pirmā vilciena sākuma.',
   glyphs,
+  variants,
   cases,
 }
 
@@ -215,6 +242,10 @@ const section = (record) =>
     .map(([key, strokes]) => `    ${JSON.stringify(key)}: ${strokeLines(strokes)}`)
     .join(',\n')}\n  }`
 
-const json = `{\n  "description": ${JSON.stringify(data.description)},\n  "glyphs": ${section(glyphs)},\n  "cases": ${section(cases)}\n}\n`
+const variantSection = `{\n${Object.entries(variants)
+  .map(([key, list]) => `    ${JSON.stringify(key)}: [\n    ${list.map(strokeLines).join(',\n    ')}\n    ]`)
+  .join(',\n')}\n  }`
+
+const json = `{\n  "description": ${JSON.stringify(data.description)},\n  "glyphs": ${section(glyphs)},\n  "variants": ${variantSection},\n  "cases": ${section(cases)}\n}\n`
 
 writeFileSync(fileURLToPath(new URL('./strokes.json', import.meta.url)), json)

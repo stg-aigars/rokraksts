@@ -58,6 +58,16 @@ export const fontProjectSchema = z.object({
 export const sessionSchema = z.object({
   project: fontProjectSchema,
   current: charSchema,
+  // Lauki no 3. posma; vecākam ierakstam to nav, un normalizeSession tos saskaņo ar projektu.
+  variant: z
+    .number()
+    .int()
+    .min(0)
+    .max(MAX_VARIANTS - 1)
+    .default(0),
+  fresh: z.boolean().default(false),
+  lap: z.boolean().default(false),
+  ghost: z.boolean().default(false),
 }) satisfies z.ZodType<Session>
 
 /** Atgriež sesiju vai null, ja dati neatbilst shēmai. */

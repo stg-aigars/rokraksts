@@ -26,8 +26,9 @@ Pirms katra commit jāiziet tīri: `lint`, `typecheck`, `test`, `build`. CI papi
 - Saskarnes teksti, testu nosaukumi un komentāri ir latviski; identifikatori kodā angliski.
 - Viss glabājas GitHub; lokālu kopiju nav, tāpēc darbs ir pabeigts tikai tad, kad tas ir nosūtīts.
 
-**Stāvoklis:** 0. posms (pamats), 1. posms (zīmēšanas laukums) un 2. posms (kodols) pabeigti.
-Nākamais ir 3. posms, latviešu burti (blāvais paraugs, variantu ievade un maiņa, "trice").
+**Stāvoklis:** 0. posms (pamats), 1. posms (zīmēšanas laukums), 2. posms (kodols) un 3. posms
+(latviešu burti: varianti, trice, blāvais paraugs) pabeigti. Nākamais ir 4. posms: lielie burti,
+cipari, pieturzīmes, pielāgošana (biezums, atstarpes, slīpums) un "trūkst zīmes" plūsma.
 
 ## Struktūra un robežas
 
@@ -71,11 +72,11 @@ types/        tipu deklarācijas bibliotēkām bez saviem tipiem
   Brīvās joslas zīmēm: 250 vienības augšā, 200 apakšā.
 - Punktus glabā kā veselus skaitļus fonta vienībās; `t` ir ms no burta pirmā vilciena sākuma; `p`
   ieraksta tikai tad, ja ierīce spiedienu tiešām mēra (ne pele, ne 0 vai 0.5).
-- Sesija (`core/project.ts`) ir `FontProject` plus atvērtā rakstzīme; `FontProject` paliek kā PRD
-  10. sadaļā. IndexedDB: datubāze `rokraksts`, krātuve `session`, atslēga `current`. Ielādējot
+- Sesija (`core/project.ts`) ir `FontProject` plus atvērtā rakstzīme un 3. posma lauki (`variant`,
+  `fresh`, `lap`, `ghost`); `FontProject` paliek kā PRD 10. sadaļā. IndexedDB: datubāze `rokraksts`, krātuve `session`, atslēga `current`. Ielādējot
   validē ar zod (`core/schema.ts`); nederīgs ieraksts nozīmē jaunu projektu.
-- "Tālāk" ir aktīva tikai tad, kad atvērtais burts ir uzrakstīts. Burtu izlaišana un "trūkst zīmes"
-  plūsma nāk 4. posmā.
+- "Tālāk" ir aktīva tikai tad, kad atvērtajam burtam ir vismaz viens variants (aplī "Uzraksti vēlreiz"
+  burtu drīkst izlaist). Burtu izlaišana pirmajā aplī un "trūkst zīmes" plūsma nāk 4. posmā.
 - E2E gaida `data-state="saved"` uz `save-state` elementa pirms pārlādes; skāriena tests (CDP
   `Input.dispatchTouchEvent`) iet tikai telefona projektā.
 
@@ -108,23 +109,72 @@ Ceļš: vilcieni → `outline` → `metrics` → `font` (sakompilēti glifi) →
   Kontūras nekur neglabājam.
 - **`core/layout.ts`.** NFC → aizstāšanas no kopas → atstarpju virknes saplūst → laušana pa vārdiem
   (pārāk garu vārdu pa burtiem). Atstarpe 300, neuzrakstīta zīme 420 vienības, rindstarpa 1,15 ×
-  (augša − apakša). Vienmēr pirmais variants; variantu maiņa un sēkla nāk 3. posmā. Neuzrakstīta
+  (augša − apakša). Variantu un trici nosaka `seed` (skat. "Latviešu burti"). Neuzrakstīta
   rakstzīme nonāk `layout.missing` ar rezervētu vietu un nekad netiek aizstāta ar citu glifu.
-- **`core/render-svg.ts`.** Katrs izmantotais glifs vienreiz `<defs>`, tekstā `<use x y>`; neuzrakstītās
+- **`core/render-svg.ts`.** Katrs izmantotais glifa variants vienreiz `<defs>`, tekstā `<use>` (ar trici
+  `transform="matrix(...)"`, bez trices `x y`); neuzrakstītās
   zīmes ir blāvi rāmīši (`showMissing`). Ja vienā lapā ir vairāki SVG, katram vajag savu `idPrefix`.
 - **Determinisms.** `layout` un `render-svg` lieto tikai veselu skaitļu aritmētiku un virkņu salikšanu,
-  tāpēc tie ir bait-identiski visur. `outline` lieto peldošā punkta matemātiku (`Math.hypot`, `exp`,
+  tāpēc tie ir bait-identiski visur (vienīgās decimāldaļas izvadē ir trices matricas koeficienti, salikti
+  kā virknes no veseliem skaitļiem). `outline` lieto peldošā punkta matemātiku (`Math.hypot`, `exp`,
   `acos`) un tiek rēķināts tikai autora ierīcē; kartītē ceļo jau noapaļoti ceļi (`Card.outlines`).
   Serverī kontūras no vilcieniem nedrīkst pārrēķināt.
 - **Priekšskatījums.** `components/Preview.tsx` zem laukuma rāda `charset.sampleText` (pangramma ar
   mazajiem burtiem, bez punkta) un pārrēķinās pēc katras sesijas izmaiņas. E2E:
   `tests/e2e/preview.spec.ts`, tikai telefona projektā, raksta ar CDP skārieniem.
 - **Etalons.** `tests/fixtures/strokes.json` ģenerē `node tests/fixtures/generate-strokes.mjs` (33 mazie
-  burti un gadījumi `cilpa`, `spiediens`, `punkts`, `svikajums`); testi lasa tikai JSON caur
+  burti, sadaļā `variants` 2. un 3. variants burtiem a i s e t u ā un 2. variants burtiem r ķ, un gadījumi
+  `cilpa`, `spiediens`, `punkts`, `svikajums`); `fixtureProject(chars, { variants: false })` dod pa vienam; testi lasa tikai JSON caur
   `tests/fixtures/strokes.ts`. Momentuzņēmumi ir `tests/fixtures/snapshots/` (skatāmi SVG un
   `konturas.txt`); apzinātu izmaiņu pēc tos atjauno ar `npm test -- -u` un pārskata acīm.
 - **Ātrums.** Etalona glifs uz izstrādes mašīnas pārrēķinās vidēji ap 2 ms, lēnākais (švīkājums) ap
   5 ms; tests prasa zem 25 ms (PRD slieksnis telefonam ir 50 ms). Īstā telefonā vēl nav mērīts.
+
+## Latviešu burti (3. posms)
+
+- **`core/random.ts`** ir vienīgais nejaušības avots izkārtotājā: `mix32` (jaucējfunkcija) un
+  `createRandom` (mulberry32), tikai 32 bitu veselu skaitļu aritmētika (`Math.imul`, nobīdes, xor).
+  `Math.random` un `Math.sin/cos` `layout`/`render-svg` ceļā nedrīkst parādīties. Vērtības ir piespraustas
+  testos (inline momentuzņēmumi); ja tās mainās, mainās visas jau izveidotās kartītes.
+- **`core/variants.ts`.** Variants = (`mix32(sēkla, 1, kodpunkts)` + rakstzīmes parādīšanās kārtas
+  numurs) mod variantu skaits. Skaitītājs ir katrai rakstzīmei savs, tāpēc ar ≥ 2 variantiem divas
+  secīgas parādīšanās vienmēr atšķiras. Katrs variants izkārtojumā aizņem savu platumu.
+- **`core/trice.ts`.** Viss veselos skaitļos: `rotate` ir leņķa sinuss tūkstošdaļās (−26..26, tātad
+  ≤ 1,49°), `scale` 981..1019 tūkstošdaļas, `shift` −10..10 vienības. Matrica `a = d = scale`,
+  `b = (scale × rotate / 1000) | 0`, `c = −b`; kosinusu neskaita (kļūda < 0,035 %, zem režģa), tāpēc
+  `scale` robeža ir par vienu tūkstošdaļu šaurāka par ±2 %. Griež ap glifa vidu uz pamatlīnijas.
+  Trice ir atkarīga tikai no sēklas un rakstzīmes kārtas numura tekstā (skaitot arī neuzrakstītās,
+  bez atstarpēm), nevis no kopīgas skaitļu virknes: jauna burta uzrakstīšana pārējo trici nemaina.
+- **Trice SVG izvadē:** `<use href="#g0" transform="matrix(1.012 0.019 -0.019 1.012 3456 760)"/>`.
+  `PlacedGlyph.matrix` ir seši veseli skaitļi (a–d tūkstošdaļās, e f vienībās); 5. posma canvas
+  zīmētājam jālieto tā pati matrica. Ar trici izkārtojumam ir `TRICE_MARGIN` = 50 vienības virs
+  pirmās un zem pēdējās rindas; starp rindām pietiek ar rindstarpas rezervi. Horizontāli glifu sargā
+  sānu atstarpe (60); ja 4. posmā `style.spacing` var samazināt zem ~0,04, tas jāpārskata.
+  `layoutText(..., { seed, trice })`: `seed` pēc noklusējuma 0, `trice: false` dod 2. posma izvadi
+  bait-identiski (momentuzņēmums `pangramma-bez-trices.svg`).
+- **Variantu ievade (`core/project.ts`).** `session.variant` ir atvērtā varianta indekss; `fresh` nozīmē,
+  ka tā projektā vēl nav (jauns vai notīrīts) un pirmais vilciens to ieliek tieši vietā `variant`.
+  Tāpēc Notīrīt + rakstīt no jauna pārzīmē variantu, nemainot pārējo secību. Tukšu variantu projektā
+  neglabā nekad. `deleteVariant` neļauj izdzēst vienīgo variantu. Nemainītie variantu objekti paliek tie
+  paši (kontūru kešs).
+- **Saskarne bez GlyphGrid.** Zem uzvednes ir josla: pogas "1 2 3" (atvērt variantu), "+" (pievienot),
+  "Dzēst variantu", un burtiem ar zīmi "Paraugs: a". PRD 7. sadaļā tas ir pierakstīts; režģis kā
+  pārskats pār visu kopu nav uztaisīts. `DrawPad` atslēga ir `rakstzīme/variants`, lai laika atskaite
+  sāktos no jauna.
+- **Aplis "Uzraksti vēlreiz".** Piedāvā, kad uzrakstīti visi 33 mazie burti un kādam vēl nav 3 variantu.
+  Secība ir `lapOrder(charset)`: `frequentChars`, tad pārējie obligātie burti. Katram atver jaunu
+  variantu; Tālāk drīkst arī bez vilcieniem (izlaist), Atpakaļ atver iepriekšējā burta pēdējo variantu,
+  "Beigt apli" vai pēdējais burts atgriež pie pirmās neuzrakstītās rakstzīmes. Viens aplis dod vienu
+  variantu; trešajam apli palaiž vēlreiz.
+- **Blāvais paraugs.** Piesaiste ir kopas dati `charset.baseChars` (ā→a, Ķ→K …). `ghostStrokes(session)`
+  dod pamatburta vilcienus (varianta indekss kā atvērtajam, citādi pēdējais); `DrawPad` tos zīmē ar
+  necaurredzamību 0,16 un nekad nenodod `onStroke`. Izvēle `session.ghost` glabājas sesijā, pēc
+  noklusējuma izslēgta.
+- **Priekšskatījums** lieto nemainīgu `PREVIEW_SEED` = 1. Pievienojot variantu, burti rindā pabīdās
+  (cits platums), bet pārējo burtu kontūra, rotācija un mērogs paliek.
+- **E2E:** `tests/e2e/variants.spec.ts` (tikai telefona projektā): variantu pievienošana, pārzīmēšana,
+  dzēšana; blāvais paraugs; visi 33 burti, aplis un pangramma bez tukšiem rāmīšiem.
+- **Nav pārbaudīts:** īstā telefonā; trices izskats ar īstu rokrakstu (etalons ir ģenerēts).
 
 ## Bibliotēku pārbaude (0. posms, 2026-11-16)
 

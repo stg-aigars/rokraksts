@@ -8,6 +8,8 @@ import type { Point, Stroke } from '@/core/types'
 type Props = {
   /** Jau uzrakstītie vilcieni (fonta vienībās). */
   strokes: Stroke[]
+  /** Blāvais paraugs: pamatburta vilcieni kā fons. Tikai attēlošanai; glifā tie nenonāk. */
+  ghost?: Stroke[]
   /** Izsauc, kad vilciens pabeigts. */
   onStroke: (stroke: Stroke) => void
   /** Nosaukums ekrāna lasītājiem. */
@@ -25,7 +27,7 @@ const LINES = [
  * Zīmēšanas laukums (PRD 6. sadaļas 1. solis). Punkti uzreiz top fonta vienībās;
  * vilcienus rāda kā vienkāršu līniju, kontūras rēķina 2. posms.
  */
-export function DrawPad({ strokes, onStroke, label }: Props) {
+export function DrawPad({ strokes, ghost = [], onStroke, label }: Props) {
   const svgRef = useRef<SVGSVGElement>(null)
   const liveRef = useRef<SVGPathElement>(null)
   const active = useRef<{ pointerId: number; points: Point[] } | null>(null)
@@ -80,6 +82,7 @@ export function DrawPad({ strokes, onStroke, label }: Props) {
       aria-label={label}
       data-testid="drawpad"
       data-strokes={strokes.length}
+      data-ghost={ghost.length}
       viewBox={`0 0 ${PAD.width} ${PAD_HEIGHT}`}
       // Izmērs: lielākais taisnstūris ar laukuma proporciju, kas ietilpst apkārtējā konteinerā.
       style={{
@@ -123,6 +126,21 @@ export function DrawPad({ strokes, onStroke, label }: Props) {
             fillOpacity={0.18}
           />
         ))}
+        {ghost.length > 0 ? (
+          <g
+            data-testid="ghost"
+            fill="none"
+            stroke="currentColor"
+            strokeOpacity={0.16}
+            strokeWidth={24}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            {ghost.map((stroke, i) => (
+              <path key={i} data-ghost-stroke d={strokePath(stroke)} />
+            ))}
+          </g>
+        ) : null}
         <g fill="none" stroke="currentColor" strokeWidth={24} strokeLinecap="round" strokeLinejoin="round">
           {strokes.map((stroke, i) => (
             <path key={i} data-stroke d={strokePath(stroke)} />
