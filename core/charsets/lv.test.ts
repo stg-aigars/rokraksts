@@ -66,4 +66,11 @@ describe('latviešu rakstzīmju kopa', () => {
       expect(missing, text).toEqual([])
     }
   })
+
+  it('parauga teksts sastāv tikai no obligātajiem burtiem un satur visus 11 burtus ar zīmēm', () => {
+    const letters = [...lv.sampleText].filter((c) => c !== ' ')
+    for (const c of letters) expect(requiredChars(lv), c).toContain(c)
+    for (const c of 'āčēģīķļņšūž') expect(letters, c).toContain(c)
+    expect(lv.sampleText.normalize('NFC')).toBe(lv.sampleText)
+  })
 })

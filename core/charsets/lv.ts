@@ -54,5 +54,7 @@ export const lv: Charset = {
     '—': '–',
     '…': '...',
   },
+  // Pangramma no PRD 12. sadaļas ar mazajiem burtiem un bez punkta.
+  sampleText: 'glāžšķūņa rūķīši dzērumā čiepj baha koncertflīģeļu vākus',
   frequentChars: [...'aisetuā'],
 }

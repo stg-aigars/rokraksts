@@ -21,6 +21,8 @@ export type Charset = {
   prompt: (char: string) => string
   /** Ievades rakstzīmes, ko attēlo ar citu glifu (pēc NFC normalizācijas). */
   substitutions: Readonly<Record<string, string>>
+  /** Parauga teksts priekšskatījumam; tikai rakstzīmes, kas jāuzraksta pirms pirmās kartītes. */
+  sampleText: string
   /** Biežākie burti dilstošā secībā; ar tiem sākas variantu aplis. */
   frequentChars: readonly string[]
 }
