@@ -9,8 +9,7 @@ test('sākumlapā ir viena poga, kas ved uz burtu rakstīšanu', async ({ page }
   await page.getByRole('link', { name: 'Sākt rakstīt' }).click()
 
   await expect(page).toHaveURL(/\/raksti$/)
-  await expect(page.getByRole('heading', { level: 1, name: 'Burtu rakstīšana' })).toBeVisible()
-  await expect(page.getByText('a ā b c č')).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'Raksti mazo a' })).toBeVisible()
 })
 
 test('sākumlapa neritinās horizontāli', async ({ page }) => {

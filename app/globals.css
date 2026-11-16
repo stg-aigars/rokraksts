@@ -10,3 +10,9 @@ html {
   background: var(--color-paper);
   color: var(--color-ink);
 }
+
+/* Zīmējot lapa nedrīkst "atsperties" vai pārlādēties ar vilkšanu uz leju. */
+html,
+body {
+  overscroll-behavior: none;
+}
