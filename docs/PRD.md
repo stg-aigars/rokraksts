@@ -87,7 +87,7 @@ Lietotājs pats uzraksta katru rakstzīmi, arī burtus ar garumzīmēm, jumtiņi
 
 - **Katrs burts ir patstāvīgs glifs.** "ā" ir atsevišķs zīmējums ar savu kodpunktu (U+0101), nevis "a" plus zīme. Tā saglabājas cilvēka paša veids, kā viņš velk garumzīmi vai komatu un kur to novieto.
 - **Alfabēta secība.** Uzvednes iet secībā a, ā, b, c, č …, lai burts ar zīmi tiktu rakstīts uzreiz pēc pamatburta un sanāktu tajā pašā rokā.
-- **Blāvs paraugs.** Rakstot burtu ar zīmi ("ā", "č", "ķ" …), laukumā blāvi redzams mūsu shematisks šī burta paraugs kopā ar zīmi pareizajā vietā. Tas ir orientieris no lietotnes puses, nevis lietotāja uzrakstītais pamatburts; pēc noklusējuma ieslēgts, un to var izslēgt. Tas ir tikai fons; glifā nonāk tikai lietotāja vilcieni.
+- **Blāvs paraugs.** Laukumā blāvi redzams mūsu shematisks rakstāmās zīmes paraugs. Tas ir orientieris no lietotnes puses, nevis lietotāja uzrakstītais pamatburts, un tas ir tikai fons; glifā nonāk tikai lietotāja vilcieni. Burtiem ar zīmi ("ā", "č", "ķ" …) tas pēc noklusējuma ir ieslēgts, jo rāda, kur likt zīmi. Pārējām zīmēm (burtiem bez zīmes, cipariem, pieturzīmēm) tas ir izslēgts, lai rokraksts neatdarinātu mūsu veidni, un lietotājs to var ieslēgt. Abas izvēles ir atsevišķas un saglabājas.
 - **Vieta zīmēm.** Laukumā ir brīva josla virs augšējās līnijas (Ā, Č, ģ) un zem pamatlīnijas (ķ, ļ, ņ, Ģ). Fonta vertikālo metriku aprēķina no faktiski uzzīmētā augstākā un zemākā punkta, lai zīmes netiktu nogrieztas.
 - **Komats, nevis sedija.** Blāvais paraugs burtiem ķ ļ ņ ģ rāda komatu, kas nav savienots ar burtu; mazajam ģ zīme ir augšā.
 - **Normalizācija.** Ievadīto tekstu pirms attēlošanas normalizē uz NFC, lai "a + kombinējamā garumzīme" kļūtu par "ā".

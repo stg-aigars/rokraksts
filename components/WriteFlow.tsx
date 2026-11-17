@@ -17,6 +17,7 @@ import {
   deleteVariant,
   endLap,
   endQueue,
+  ghostOn,
   guideStrokes,
   goBack,
   goNext,
@@ -245,8 +246,8 @@ export function WriteFlow() {
         {hasGuide(session) ? (
           <button
             type="button"
-            aria-pressed={session.ghost}
-            className={`${small} ml-auto ${session.ghost ? 'bg-ink text-white' : 'bg-white'}`}
+            aria-pressed={ghostOn(session)}
+            className={`${small} ml-auto ${ghostOn(session) ? 'bg-ink text-white' : 'bg-white'}`}
             onClick={() => update(toggleGhost)}
           >
             Paraugs

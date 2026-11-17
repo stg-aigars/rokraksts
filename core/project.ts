@@ -25,6 +25,8 @@ export type Session = {
   lap: boolean
   /** Vai laukumā rādīt blāvo paraugu burtiem ar zīmēm (PRD 5. sadaļa); pēc noklusējuma jā. */
   ghost: boolean
+  /** Vai rādīt blāvo paraugu pārējām zīmēm (burtiem bez zīmes, cipariem, pieturzīmēm); pēc noklusējuma nē. */
+  ghostPlain: boolean
   /** Lietotāja teksts priekšskatījumam; tukšs nozīmē rakstzīmju kopas parauga tekstu. Paliek ierīcē. */
   text: string
   /**
@@ -61,6 +63,7 @@ export function createSession(id: string, createdAt: string): Session {
     fresh: true,
     lap: false,
     ghost: true,
+    ghostPlain: false,
     text: '',
     queue: [],
   }
@@ -288,21 +291,31 @@ export function progress(session: Session): { done: number; total: number } {
 
 // --- blāvais paraugs (PRD 5. sadaļa) ---
 
-export function toggleGhost(session: Session): Session {
-  return { ...session, ghost: !session.ghost }
+function isMarked(session: Session): boolean {
+  return getCharset(session.project.charset).markedChars.includes(session.current)
 }
 
-/** Vai atvērtajai rakstzīmei rakstzīmju kopā ir paraugs (burti ar zīmēm). */
+/** Vai atvērtajai zīmei paraugs ir ieslēgts: burtiem ar zīmi un pārējām zīmēm izvēle ir atsevišķa. */
+export function ghostOn(session: Session): boolean {
+  return isMarked(session) ? session.ghost : session.ghostPlain
+}
+
+/** Ieslēdz vai izslēdz paraugu: burtiem ar zīmi vai visām pārējām zīmēm, atkarībā no atvērtās. */
+export function toggleGhost(session: Session): Session {
+  return isMarked(session) ? { ...session, ghost: !session.ghost } : { ...session, ghostPlain: !session.ghostPlain }
+}
+
+/** Vai atvērtajai rakstzīmei rakstzīmju kopā ir paraugs. */
 export function hasGuide(session: Session): boolean {
   return getCharset(session.project.charset).guides[session.current] !== undefined
 }
 
 /**
- * Paraugs, ko laukumā rādīt blāvi: mūsu shematisks burts ar zīmi no rakstzīmju kopas datiem.
- * Tas ir tikai fons un nav atkarīgs no lietotāja uzrakstītā; glifā tas nekad nenonāk.
+ * Paraugs, ko laukumā rādīt blāvi: mūsu shematiska zīme no rakstzīmju kopas datiem. Tas ir tikai
+ * fons un nav atkarīgs no lietotāja uzrakstītā; glifā tas nekad nenonāk.
  */
 export function guideStrokes(session: Session): readonly (readonly number[])[] {
-  if (!session.ghost) return []
+  if (!ghostOn(session)) return []
   return getCharset(session.project.charset).guides[session.current] ?? []
 }
 

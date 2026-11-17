@@ -73,8 +73,8 @@ types/        tipu deklarācijas bibliotēkām bez saviem tipiem
   Brīvās joslas zīmēm: 250 vienības augšā, 200 apakšā.
 - Punktus glabā kā veselus skaitļus fonta vienībās; `t` ir ms no burta pirmā vilciena sākuma; `p`
   ieraksta tikai tad, ja ierīce spiedienu tiešām mēra (ne pele, ne 0 vai 0.5).
-- Sesija (`core/project.ts`) ir `FontProject` plus atvērtā rakstzīme un 3. posma lauki (`variant`,
-  `fresh`, `lap`, `ghost`); `FontProject` paliek kā PRD 10. sadaļā. IndexedDB: datubāze `rokraksts`, krātuve `session`, atslēga `current`. Ielādējot
+- Sesija (`core/project.ts`) ir `FontProject` plus atvērtā rakstzīme un vēlāku posmu lauki (`variant`,
+  `fresh`, `lap`, `ghost`, `ghostPlain`, `text`, `queue`); `FontProject` paliek kā PRD 10. sadaļā. IndexedDB: datubāze `rokraksts`, krātuve `session`, atslēga `current`. Ielādējot
   validē ar zod (`core/schema.ts`); nederīgs ieraksts nozīmē jaunu projektu.
 - Neuzrakstītu burtu var izlaist: poga saucas "Izlaist", pēc pirmā vilciena "Tālāk" (rindas pēdējai
   zīmei "Gatavs"). Izlaistais paliek neuzrakstīts; aplis "Uzraksti vēlreiz" gaida visus 33.
@@ -173,15 +173,19 @@ Ceļš: vilcieni → `outline` → `metrics` → `font` (sakompilēti glifi) →
   variantu; Tālāk drīkst arī bez vilcieniem (izlaist), Atpakaļ atver iepriekšējā burta pēdējo variantu,
   "Beigt apli" vai pēdējais burts atgriež pie pirmās neuzrakstītās rakstzīmes. Viens aplis dod vienu
   variantu; trešajam apli palaiž vēlreiz.
-- **Blāvais paraugs** ir mūsu shematisks burts ar zīmi (ā č ē ģ ī ķ ļ ņ š ū ž), nevis lietotāja
-  uzrakstītais pamatburts (īpašnieka lēmums 3. posmā; PRD 5. sadaļa izlabota). Dati ir
-  `charset.guides` (`core/charsets/lv-guides.ts`, ģenerēts ar `node scripts/generate-guides.mjs` no
-  `scripts/letter-shapes.mjs`; ar roku nelabot): lauztas līnijas veselos skaitļos, pēdējais vilciens ir
-  zīme. Burtiem ķ ļ ņ komats ir zem pamatlīnijas un nav savienots ar burtu, mazajam ģ zīme ir augšā.
-  `guideStrokes(session)` → `DrawPad` prop `guide`, zīmēts ar necaurredzamību 0,16; `onStroke` to
-  neredz, tāpēc glifā tas nenonāk. `session.ghost` pēc noklusējuma ir ieslēgts, poga "Paraugs" to
-  izslēdz, un izvēle glabājas sesijā. Lielajiem burtiem (Ā Č Ē Ģ Ī Ķ Ļ Ņ Š Ū Ž) paraugs ir kopš 4. posma:
-  garumzīme un jumtiņš brīvajā joslā virs 700, Ģ Ķ Ļ Ņ komats apakšā. Tās pašas formas lieto etalona
+- **Blāvais paraugs** ir mūsu shematiska zīme, nevis lietotāja uzrakstītais pamatburts (īpašnieka
+  lēmums 3. posmā; PRD 5. sadaļa). Kopš 4. posma tas ir **visām 99 zīmēm** (īpašnieka lēmums): burtiem ar
+  zīmi (`charset.markedChars`: ā č ē ģ ī ķ ļ ņ š ū ž, mazie un lielie) pēc noklusējuma ieslēgts, jo rāda,
+  kur likt zīmi; pārējām zīmēm izslēgts, lai rokraksts neatdarinātu mūsu veidni. Poga "Paraugs" ir
+  visām zīmēm un pārslēdz atvērtajai zīmei atbilstošo izvēli: `session.ghost` (burti ar zīmi, noklusējums
+  jā) vai `session.ghostPlain` (pārējās, noklusējums nē); abas glabājas sesijā, `ghostOn(session)` saka,
+  kura attiecas. Dati ir `charset.guides` (`core/charsets/lv-guides.ts`, ģenerēts ar
+  `node scripts/generate-guides.mjs` no `scripts/letter-shapes.mjs`; ar roku nelabot): lauztas līnijas
+  veselos skaitļos; burtiem ar zīmi pēdējais vilciens ir zīme; punkts ir nogrieznis uz sevi (ekrānā punkts
+  ar apaļiem galiem, bet Playwright to uzskata par neredzamu, tāpēc e2e skaita ceļus). Burtiem ķ ļ ņ un
+  lielajam Ģ komats ir zem pamatlīnijas un nav savienots ar burtu, mazajam ģ zīme ir augšā; lielajiem
+  garumzīme un jumtiņš brīvajā joslā virs 700. `guideStrokes(session)` → `DrawPad` prop `guide`, zīmēts
+  ar necaurredzamību 0,16; `onStroke` to neredz, tāpēc glifā tas nenonāk. Tās pašas formas lieto etalona
   ģenerators, tāpēc pēc formu maiņas jāpārģenerē abi un `strokes.json` izmaiņas jāpārskata.
 - **Priekšskatījums** lieto nemainīgu `PREVIEW_SEED` = 1. Pievienojot variantu, burti rindā pabīdās
   (cits platums), bet pārējo burtu kontūra, rotācija un mērogs paliek.

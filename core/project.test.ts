@@ -14,6 +14,7 @@ import {
   deleteVariant,
   endLap,
   endQueue,
+  ghostOn,
   guideStrokes,
   goBack,
   goNext,
@@ -422,9 +423,20 @@ describe('blāvais paraugs', () => {
     expect(guideStrokes(toggleGhost(off))).toBe(lv.guides['ā'])
   })
 
-  it('burtam bez zīmes parauga nav', () => {
-    expect(hasGuide(fresh())).toBe(false)
-    expect(guideStrokes(fresh())).toEqual([])
+  it('burtam bez zīmes paraugs ir, bet pēc noklusējuma izslēgts; ieslēgšana neietekmē burtus ar zīmi', () => {
+    const s = fresh()
+    expect(hasGuide(s)).toBe(true)
+    expect(ghostOn(s)).toBe(false)
+    expect(guideStrokes(s)).toEqual([])
+    const on = toggleGhost(s)
+    expect([on.ghost, on.ghostPlain]).toEqual([true, true])
+    expect(guideStrokes(on)).toBe(lv.guides['a'])
+    // Izvēle attiecas uz visām zīmēm bez zīmes: arī lielajiem burtiem, cipariem, pieturzīmēm.
+    for (const c of ['B', '7', '♥']) expect(guideStrokes(openChar(on, c)), c).toBe(lv.guides[c])
+    // Burtiem ar zīmi sava izvēle: izslēdzot "ā" paraugu, "b" paraugs paliek.
+    const macronOff = toggleGhost(goNext(addStroke(on, stroke(100))))
+    expect(guideStrokes(macronOff)).toEqual([])
+    expect(guideStrokes(openChar(macronOff, 'b'))).toBe(lv.guides['b'])
   })
 
   it('paraugs ir tikai fons: glifā nonāk tikai lietotāja vilcieni', () => {
@@ -450,6 +462,7 @@ describe('sesijas glabāšana ar variantiem', () => {
     const loaded = normalizeSession(parseSession(JSON.parse(JSON.stringify(old)))!)
     expect(loaded).toEqual(s)
     expect(loaded.ghost).toBe(true)
+    expect(loaded.ghostPlain).toBe(false)
     const unwritten = normalizeSession(parseSession({ project: s.project, current: 'ā' })!)
     expect([unwritten.variant, unwritten.fresh]).toEqual([0, true])
   })

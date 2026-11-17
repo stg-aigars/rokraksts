@@ -68,6 +68,7 @@ export const sessionSchema = z.object({
   fresh: z.boolean().default(false),
   lap: z.boolean().default(false),
   ghost: z.boolean().default(true),
+  ghostPlain: z.boolean().default(false),
   // Lauki no 4. posma.
   text: z.string().max(2000).default(''),
   queue: z.array(charSchema).max(99).default([]),

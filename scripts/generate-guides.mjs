@@ -1,4 +1,4 @@
-// Ģenerē blāvos paraugus burtiem ar zīmēm: core/charsets/lv-guides.ts.
+// Ģenerē blāvos paraugus visām zīmēm: core/charsets/lv-guides.ts.
 // Palaišana: node scripts/generate-guides.mjs
 //
 // Paraugs ir mūsu shematisks burts kopā ar zīmi (garumzīme, jumtiņš, komats) pareizajā vietā, ko
@@ -31,23 +31,31 @@ function simplify(points) {
   return [...simplify(points.slice(0, index + 1)).slice(0, -1), ...simplify(points.slice(index))]
 }
 
-// Burti ar zīmi: tie, kas NFD formā sadalās pamatburtā un kombinējamā zīmē (i un j te neietilpst).
-// Vispirms mazie, tad lielie burti (Ā Č Ē Ģ Ī Ķ Ļ Ņ Š Ū Ž).
+// Paraugs ir visām zīmēm. Burti ar zīmi (tie, kas NFD formā sadalās pamatburtā un kombinējamā
+// zīmē; i un j te neietilpst) ir atsevišķā sarakstā: tiem paraugs ir ieslēgts pēc noklusējuma, un
+// to pēdējais vilciens ir zīme. Vispirms mazie, tad pārējās zīmes etalona secībā.
 const all = [...Object.entries(shapes), ...moreShapes]
-const chars = all.filter(([char]) => char.normalize('NFD').length > 1)
+const marked = all.map(([char]) => char).filter((char) => char.normalize('NFD').length > 1)
 
-const entries = chars.map(([char, list]) => {
-  const strokes = list.map((shape) => simplify(shape).flatMap(([x, y]) => [Math.round(x), Math.round(y)]))
-  return `  ${char}: [\n${strokes.map((s) => `    [${s.join(', ')}],`).join('\n')}\n  ],`
+const entries = all.map(([char, list]) => {
+  const strokes = list.map((shape) => {
+    const points = simplify(shape).flatMap(([x, y]) => [Math.round(x), Math.round(y)])
+    // Punkts (viens pieskāriens) kļūst par nogriezni uz sevi; ar noapaļotiem galiem tas ir punkts.
+    return points.length === 2 ? [...points, ...points] : points
+  })
+  return `  ${JSON.stringify(char)}: [\n${strokes.map((s) => `    [${s.join(', ')}],`).join('\n')}\n  ],`
 })
 
 const source = `// ĢENERĒTS FAILS: node scripts/generate-guides.mjs. Ar roku nelabot.
-// Blāvie paraugi burtiem ar zīmēm: katrs vilciens ir lauzta līnija [x0, y0, x1, y1, ...]
-// fonta vienībās (y uz augšu, pamatlīnija 0). Pēdējais vilciens ir zīme.
+// Blāvie paraugi visām zīmēm: katrs vilciens ir lauzta līnija [x0, y0, x1, y1, ...] fonta
+// vienībās (y uz augšu, pamatlīnija 0). Burtiem ar zīmi (lvMarkedChars) pēdējais vilciens ir zīme.
 
 export const lvGuides: Readonly<Record<string, readonly (readonly number[])[]>> = {
 ${entries.join('\n')}
 }
+
+/** Burti ar zīmi: tiem paraugs ir ieslēgts pēc noklusējuma. */
+export const lvMarkedChars: readonly string[] = ${JSON.stringify(marked)}
 `
 
 writeFileSync(fileURLToPath(new URL('../core/charsets/lv-guides.ts', import.meta.url)), source)

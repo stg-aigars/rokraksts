@@ -93,14 +93,15 @@ describe('latviešu rakstzīmju kopa', () => {
     const mark = (char: string) => lv.guides[char]!.at(-1)!
     const letter = (char: string) => lv.guides[char]!.slice(0, -1)
 
-    it('ir katram burtam ar zīmi (mazajam un lielajam) un tikai tiem', () => {
-      expect(Object.keys(lv.guides).join('')).toBe('āčēģīķļņšūžĀČĒĢĪĶĻŅŠŪŽ')
-      for (const c of Object.keys(lv.guides)) expect(chars).toContain(c)
+    it('ir visām 99 kopas zīmēm; burti ar zīmi (pēc noklusējuma ieslēgtie) ir mazie un lielie ā č ē ģ ī ķ ļ ņ š ū ž', () => {
+      expect(Object.keys(lv.guides).sort()).toEqual([...chars].sort())
+      expect(lv.markedChars.join('')).toBe('āčēģīķļņšūžĀČĒĢĪĶĻŅŠŪŽ')
     })
 
-    it('ir veseli skaitļi laukuma robežās; katrs vilciens ir vismaz viens nogrieznis', () => {
-      for (const strokes of Object.values(lv.guides)) {
-        expect(strokes.length).toBeGreaterThanOrEqual(2)
+    it('ir veseli skaitļi laukuma robežās; katrs vilciens ir vismaz viens nogrieznis (punkts ir nogrieznis uz sevi)', () => {
+      for (const [char, strokes] of Object.entries(lv.guides)) {
+        // Burtam ar zīmi ir vismaz burts un zīme.
+        expect(strokes.length, char).toBeGreaterThanOrEqual(lv.markedChars.includes(char) ? 2 : 1)
         for (const stroke of strokes) {
           expect(stroke.length % 2).toBe(0)
           expect(stroke.length).toBeGreaterThanOrEqual(4)

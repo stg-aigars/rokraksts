@@ -289,3 +289,42 @@ test('rakstot lielos burtus, ciparus un pieturzīmes, priekšskatījums rāda t�
   await expect(label).toHaveAttribute('aria-label', 'Ķ ♥')
   await expect(preview(page)).toHaveAttribute('data-missing', '0')
 })
+
+test('paraugu var ieslēgt arī zīmēm bez zīmes: burtiem, cipariem, pieturzīmēm; burtiem ar zīmi sava izvēle', async ({ page }) => {
+  const toggle = button(page, 'Paraugs')
+  const guide = page.getByTestId('ghost')
+
+  // "a": pēc noklusējuma izslēgts; ieslēdzot redzams shematisks "a".
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false')
+  await expect(guide).toHaveCount(0)
+  await toggle.click()
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true')
+  await expect(guide.locator('path')).toHaveCount(lv.guides['a']!.length)
+  // Paraugs nav vilciens.
+  await expect(pad(page)).toHaveAttribute('data-strokes', '0')
+
+  // Izvēle attiecas uz visām zīmēm bez zīmes: lielo B, ciparu 7, punktu.
+  for (const char of ['B', '7', '.']) {
+    await button(page, 'Visas zīmes').click()
+    await cell(page, char).click()
+    await expect(toggle).toHaveAttribute('aria-pressed', 'true')
+    await expect(guide.locator('path')).toHaveCount(lv.guides[char]!.length)
+  }
+
+  // Burtiem ar zīmi izvēle ir atsevišķa: izslēdzot Ā paraugu, punkta paraugs paliek.
+  await button(page, 'Visas zīmes').click()
+  await cell(page, 'Ā').click()
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true')
+  await toggle.click()
+  await expect(guide).toHaveCount(0)
+  await button(page, 'Visas zīmes').click()
+  await cell(page, '.').click()
+  await expect(guide.locator('path')).toHaveCount(1)
+
+  // Izvēle saglabājas pēc pārlādes.
+  await saved(page)
+  await page.reload()
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true')
+  // Punkta paraugs ir nogrieznis uz sevi (apaļi gali), tāpēc tā robežkaste ir tukša: skaita ceļus.
+  await expect(guide.locator('path')).toHaveCount(1)
+})
