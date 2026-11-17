@@ -16,12 +16,17 @@ const TOLERANCE = 1.5
 function simplify(points) {
   if (points.length <= 2) return points
   const [a, b] = [points[0], points[points.length - 1]]
-  const length = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1
+  const length = Math.hypot(b[0] - a[0], b[1] - a[1])
   let worst = 0
   let index = 0
   for (let i = 1; i < points.length - 1; i++) {
     const p = points[i]
-    const distance = Math.abs((b[0] - a[0]) * (a[1] - p[1]) - (a[0] - p[0]) * (b[1] - a[1])) / length
+    // Noslēgtai figūrai (o, 0, 8, ♥) gali sakrīt: tad attālums līdz galapunktam, nevis līdz taisnei,
+    // citādi visa figūra saruktu punktā.
+    const distance =
+      length < 1e-6
+        ? Math.hypot(p[0] - a[0], p[1] - a[1])
+        : Math.abs((b[0] - a[0]) * (a[1] - p[1]) - (a[0] - p[0]) * (b[1] - a[1])) / length
     if (distance > worst) {
       worst = distance
       index = i

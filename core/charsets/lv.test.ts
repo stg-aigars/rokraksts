@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { fixtureAll, fixtureStrokes } from '../../tests/fixtures/strokes'
 import { PAD } from '../pad'
 import { allChars, getCharset, requiredChars } from './index'
 
@@ -111,6 +112,19 @@ describe('latviešu rakstzīmju kopa', () => {
           expect(Math.min(...ys(stroke))).toBeGreaterThanOrEqual(PAD.bottom)
           expect(Math.max(...ys(stroke))).toBeLessThanOrEqual(PAD.top)
         }
+      }
+    })
+
+    it('katrs paraugs aptver visu zīmes formu (arī noslēgtās figūras o, 0, 8, ♥ nesarūk punktā)', () => {
+      // Paraugs un etalona vilcieni nāk no tām pašām formām (scripts/letter-shapes.mjs); etalonā
+      // ir neliela roku trīce, tāpēc pielaide ir dažas vienības.
+      for (const char of fixtureAll) {
+        const guide = lv.guides[char]!.flat()
+        const points = fixtureStrokes(char).flatMap((stroke) => stroke.points)
+        const box = (xs: number[], ys: number[]) => [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)]
+        const expected = box(points.map((p) => p.x), points.map((p) => p.y))
+        const actual = box(xs(guide), ys(guide))
+        actual.forEach((value, i) => expect(Math.abs(value - expected[i]!), `${char}`).toBeLessThanOrEqual(6))
       }
     })
 
