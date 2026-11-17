@@ -75,6 +75,17 @@ describe('latviešu rakstzīmju kopa', () => {
     expect(lv.sampleText.normalize('NFC')).toBe(lv.sampleText)
   })
 
+  it('katras grupas parauga teksts satur visas grupas zīmes; citas zīmes tikai no obligātās grupas', () => {
+    expect(lv.groupSamples.lower).toBe(lv.sampleText)
+    const required = requiredChars(lv)
+    for (const g of lv.groups) {
+      const sample = lv.groupSamples[g.id]
+      expect(sample.normalize('NFC'), g.id).toBe(sample)
+      for (const c of g.chars) expect([...sample], `${g.id}: ${c}`).toContain(c)
+      for (const c of sample) if (c !== ' ') expect([...g.chars, ...required], `${g.id}: ${c}`).toContain(c)
+    }
+  })
+
   describe('blāvie paraugi', () => {
     const ys = (stroke: readonly number[]) => stroke.filter((_, i) => i % 2 === 1)
     const xs = (stroke: readonly number[]) => stroke.filter((_, i) => i % 2 === 0)

@@ -122,8 +122,10 @@ Ceļš: vilcieni → `outline` → `metrics` → `font` (sakompilēti glifi) →
   kā virknes no veseliem skaitļiem). `outline` lieto peldošā punkta matemātiku (`Math.hypot`, `exp`,
   `acos`) un tiek rēķināts tikai autora ierīcē; kartītē ceļo jau noapaļoti ceļi (`Card.outlines`).
   Serverī kontūras no vilcieniem nedrīkst pārrēķināt.
-- **Priekšskatījums.** `components/Preview.tsx` zem laukuma rāda `charset.sampleText` (pangramma ar
-  mazajiem burtiem, bez punkta) un pārrēķinās pēc katras sesijas izmaiņas. E2E:
+- **Priekšskatījums.** `components/Preview.tsx` zem laukuma rāda `previewText(session)`: lietotāja
+  tekstu, ja tajā ir atvērtā zīme, citādi tās grupas paraugu (`charset.groupSamples`; mazajiem burtiem
+  `sampleText`, pangramma bez punkta), lai rakstot lielos burtus, ciparus un pieturzīmes tās būtu
+  redzamas. Pārrēķinās pēc katras sesijas izmaiņas. E2E:
   `tests/e2e/preview.spec.ts`, tikai telefona projektā, raksta ar CDP skārieniem.
 - **Etalons.** `tests/fixtures/strokes.json` ģenerē `node tests/fixtures/generate-strokes.mjs`: sadaļā
   `glyphs` 33 mazie burti, `variants` 2. un 3. variants burtiem a i s e t u ā un 2. variants burtiem r ķ,

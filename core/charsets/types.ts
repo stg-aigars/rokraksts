@@ -23,6 +23,12 @@ export type Charset = {
   substitutions: Readonly<Record<string, string>>
   /** Parauga teksts priekšskatījumam; tikai rakstzīmes, kas jāuzraksta pirms pirmās kartītes. */
   sampleText: string
+  /**
+   * Parauga teksts katrai grupai: priekšskatījums rāda tās grupas paraugu, kuras zīmi šobrīd raksta,
+   * lai, rakstot lielos burtus, ciparus vai pieturzīmes, tās būtu redzamas. Katrs satur visas savas
+   * grupas zīmes; pārējās zīmes tajā ir tikai no obligātās grupas.
+   */
+  groupSamples: Readonly<Record<CharGroupId, string>>
   /** Biežākie burti dilstošā secībā; ar tiem sākas variantu aplis. */
   frequentChars: readonly string[]
   /**

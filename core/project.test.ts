@@ -20,6 +20,7 @@ import {
   hasGuide,
   normalizeSession,
   openChar,
+  previewText,
   progress,
   promptChars,
   selectVariant,
@@ -596,5 +597,23 @@ describe('teksts un stils sesijā', () => {
     expect(normalizeSession({ ...s, queue: ['A', '@', 'A', 'B'] }).queue).toEqual(['A', 'B'])
     const wild = { ...s, project: { ...s.project, style: { strokeWidth: 9, spacing: 0, slant: -1, scale: 3 } } }
     expect(normalizeSession(wild).project.style).toEqual({ strokeWidth: 2, spacing: 0.04, slant: -0.2, scale: 1.25 })
+  })
+})
+
+describe('priekšskatījuma teksts rakstot', () => {
+  it('rāda tās grupas paraugu, kuras zīmi raksta: lielos burtus, ciparus, pieturzīmes', () => {
+    expect(previewText(fresh())).toBe(lv.sampleText)
+    expect(previewText(openChar(fresh(), 'Ķ'))).toBe(lv.groupSamples.upper)
+    expect(previewText(openChar(fresh(), '7'))).toBe(lv.groupSamples.digits)
+    expect(previewText(openChar(fresh(), '♥'))).toBe(lv.groupSamples.punctuation)
+    expect(previewText(openChar(fresh(), 'x'))).toBe(lv.groupSamples['lower-extra'])
+  })
+
+  it('lietotāja tekstu rāda, ja tajā ir atvērtā zīme (arī pēc NFC); citādi grupas paraugu', () => {
+    const s = setText(fresh(), 'Sveiks, Mārīt!')
+    expect(previewText(openChar(s, 'M'))).toBe('Sveiks, Mārīt!')
+    expect(previewText(openChar(s, 'ā'))).toBe('Sveiks, Mārīt!')
+    expect(previewText(openChar(s, 'Ķ'))).toBe(lv.groupSamples.upper)
+    expect(previewText(openChar(setText(fresh(), 'Ā'), 'Ā'))).toBe('Ā')
   })
 })

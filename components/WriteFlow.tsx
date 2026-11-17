@@ -22,6 +22,7 @@ import {
   goNext,
   hasGuide,
   openChar,
+  previewText,
   progress,
   queuePosition,
   selectVariant,
@@ -294,7 +295,7 @@ export function WriteFlow() {
         />
       </div>
 
-      <Preview font={font} charset={charset} text={session.text} onPick={open} />
+      <Preview font={font} charset={charset} text={previewText(session)} onPick={open} />
 
       <div className="flex gap-2">
         <button type="button" className={secondary} disabled={!canGoBack(session)} onClick={() => update(goBack)}>

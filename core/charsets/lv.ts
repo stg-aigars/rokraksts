@@ -57,6 +57,13 @@ export const lv: Charset = {
   },
   // Pangramma no PRD 12. sadaļas ar mazajiem burtiem un bez punkta.
   sampleText: 'glāžšķūņa rūķīši dzērumā čiepj baha koncertflīģeļu vākus',
+  groupSamples: {
+    lower: 'glāžšķūņa rūķīši dzērumā čiepj baha koncertflīģeļu vākus',
+    'lower-extra': 'quiz wax yoga',
+    upper: 'GLĀŽŠĶŪŅA RŪĶĪŠI DZĒRUMĀ ČIEPJ BAHA KONCERTFLĪĢEĻU VĀKUS QUIZ WAX YOGA',
+    digits: '1234567890',
+    punctuation: "„sveiki!“ – jā, nē? (labi): rīt-parīt; tev & man ♥ 'mīļi'.",
+  },
   frequentChars: [...'aisetuā'],
   // Burtiem ķ ļ ņ ģ paraugs rāda komatu, kas nav savienots ar burtu; mazajam ģ zīme ir augšā.
   guides: lvGuides,

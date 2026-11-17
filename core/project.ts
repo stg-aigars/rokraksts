@@ -381,3 +381,15 @@ export function setStyle(session: Session, patch: Partial<FontStyle>): Session {
   if (sameStyle(style, session.project.style)) return session
   return { ...session, project: { ...session.project, style } }
 }
+
+/**
+ * Teksts priekšskatījumam rakstīšanas laikā: lietotāja teksts, ja tajā ir atvērtā zīme (piemēram,
+ * rakstot trūkstošās zīmes); citādi tās grupas parauga teksts, kurā ir atvērtā zīme. Tā, rakstot
+ * lielos burtus, ciparus vai pieturzīmes, tās ir redzamas priekšskatījumā.
+ */
+export function previewText(session: Session): string {
+  const charset = getCharset(session.project.charset)
+  if (session.text && [...prepareText(session.text, charset)].includes(session.current)) return session.text
+  const group = charset.groups.find((g) => g.chars.includes(session.current))
+  return group ? charset.groupSamples[group.id] : charset.sampleText
+}

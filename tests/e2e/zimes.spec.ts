@@ -256,3 +256,36 @@ test('visas zīmes: režģis rāda 99 zīmes pa grupām; viens pieskāriens atve
   await expect(page.getByTestId('variants')).toHaveAttribute('data-count', '2')
   expect(allChars(lv)).toHaveLength(99)
 })
+
+test('rakstot lielos burtus, ciparus un pieturzīmes, priekšskatījums rāda tās grupas paraugu', async ({ page }) => {
+  const label = preview(page).locator('svg')
+  const count = (text: string, char: string) => [...text].filter((c) => c === char).length
+
+  // Mazajiem burtiem: mazo burtu pangramma.
+  await expect(label).toHaveAttribute('aria-label', lv.sampleText)
+
+  await button(page, 'Visas zīmes').click()
+  await cell(page, 'Ķ').click()
+  await expect(label).toHaveAttribute('aria-label', lv.groupSamples.upper)
+  await touchStroke(page, [0.35, 0.15], [0.35, 0.65])
+  await expect(preview(page)).toHaveAttribute('data-glyphs', String(count(lv.groupSamples.upper, 'Ķ')))
+
+  await button(page, 'Visas zīmes').click()
+  await cell(page, '3').click()
+  await expect(label).toHaveAttribute('aria-label', lv.groupSamples.digits)
+  await touchStroke(page, [0.35, 0.2], [0.6, 0.6])
+  await expect(preview(page)).toHaveAttribute('data-glyphs', '1')
+
+  await button(page, 'Visas zīmes').click()
+  await cell(page, '♥').click()
+  await expect(label).toHaveAttribute('aria-label', lv.groupSamples.punctuation)
+  await touchStroke(page, [0.35, 0.2], [0.6, 0.6])
+  await expect(preview(page)).toHaveAttribute('data-glyphs', '1')
+
+  // Savs teksts ar šo zīmi: priekšskatījums rāda to.
+  await button(page, 'Teksts un stils').click()
+  await textInput(page).fill('Ķ ♥')
+  await button(page, 'Rakstīt burtus').click()
+  await expect(label).toHaveAttribute('aria-label', 'Ķ ♥')
+  await expect(preview(page)).toHaveAttribute('data-missing', '0')
+})
