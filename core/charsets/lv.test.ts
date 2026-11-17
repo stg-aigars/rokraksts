@@ -82,8 +82,8 @@ describe('latviešu rakstzīmju kopa', () => {
     const mark = (char: string) => lv.guides[char]!.at(-1)!
     const letter = (char: string) => lv.guides[char]!.slice(0, -1)
 
-    it('ir katram mazajam burtam ar zīmi un tikai tiem', () => {
-      expect(Object.keys(lv.guides).join('')).toBe('āčēģīķļņšūž')
+    it('ir katram burtam ar zīmi (mazajam un lielajam) un tikai tiem', () => {
+      expect(Object.keys(lv.guides).join('')).toBe('āčēģīķļņšūžĀČĒĢĪĶĻŅŠŪŽ')
       for (const c of Object.keys(lv.guides)) expect(chars).toContain(c)
     })
 
@@ -118,6 +118,23 @@ describe('latviešu rakstzīmju kopa', () => {
         expect(Math.max(...ys(mark(c))), c).toBeLessThanOrEqual(-80)
         expect(Math.min(...ys(mark(c))), c).toBeGreaterThanOrEqual(PAD.lines.descender)
         expect(Math.min(...letter(c).flatMap(ys)), c).toBeGreaterThanOrEqual(-5)
+      }
+    })
+
+    it('lielajiem burtiem garumzīme un jumtiņš ir brīvajā joslā virs lielo burtu augstuma', () => {
+      for (const c of 'ĀČĒĪŠŪŽ') {
+        expect(Math.min(...ys(mark(c))), c).toBeGreaterThan(PAD.lines.ascender + 60)
+        expect(Math.max(...letter(c).flatMap(ys)), c).toBeLessThanOrEqual(PAD.lines.ascender + 5)
+        expect(Math.min(...letter(c).flatMap(ys)), c).toBeGreaterThanOrEqual(-5)
+      }
+    })
+
+    it('lielajiem Ģ Ķ Ļ Ņ komats ir apakšā un nav savienots ar burtu (arī Ģ, atšķirībā no mazā ģ)', () => {
+      for (const c of 'ĢĶĻŅ') {
+        expect(Math.max(...ys(mark(c))), c).toBeLessThanOrEqual(-80)
+        expect(Math.min(...ys(mark(c))), c).toBeGreaterThanOrEqual(PAD.lines.descender)
+        expect(Math.min(...letter(c).flatMap(ys)), c).toBeGreaterThanOrEqual(-5)
+        expect(Math.max(...letter(c).flatMap(ys)), c).toBeGreaterThan(PAD.lines.ascender - 10)
       }
     })
 

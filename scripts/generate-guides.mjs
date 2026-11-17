@@ -8,7 +8,7 @@
 
 import { writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { shapes } from './letter-shapes.mjs'
+import { moreShapes, shapes } from './letter-shapes.mjs'
 
 const TOLERANCE = 1.5
 
@@ -32,10 +32,12 @@ function simplify(points) {
 }
 
 // Burti ar zīmi: tie, kas NFD formā sadalās pamatburtā un kombinējamā zīmē (i un j te neietilpst).
-const chars = Object.keys(shapes).filter((char) => char.normalize('NFD').length > 1)
+// Vispirms mazie, tad lielie burti (Ā Č Ē Ģ Ī Ķ Ļ Ņ Š Ū Ž).
+const all = [...Object.entries(shapes), ...moreShapes]
+const chars = all.filter(([char]) => char.normalize('NFD').length > 1)
 
-const entries = chars.map((char) => {
-  const strokes = shapes[char].map((shape) => simplify(shape).flatMap(([x, y]) => [Math.round(x), Math.round(y)]))
+const entries = chars.map(([char, list]) => {
+  const strokes = list.map((shape) => simplify(shape).flatMap(([x, y]) => [Math.round(x), Math.round(y)]))
   return `  ${char}: [\n${strokes.map((s) => `    [${s.join(', ')}],`).join('\n')}\n  ],`
 })
 

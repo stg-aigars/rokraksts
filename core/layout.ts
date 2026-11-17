@@ -1,5 +1,6 @@
 import type { Charset } from './charsets'
 import type { CompiledFont } from './font'
+import type { FontMetrics } from './types'
 import { triceAt, triceMatrix } from './trice'
 import type { Matrix } from './trice'
 import { createVariantPicker } from './variants'
@@ -10,9 +11,11 @@ import { createVariantPicker } from './variants'
 // (core/trice.ts) nāk no sēklas; cita nejaušības avota nav.
 // Koordinātas ir fonta vienībās ar y uz leju; glifa (x, y) ir tā sākums uz pamatlīnijas.
 
-/** Atstarpes platums fonta vienībās. */
+/** Mazo burtu augstums, pie kura spēkā ir zemāk dotie platumi (laukuma līnija, izmērs 1). */
+const BASE_X_HEIGHT = 450
+/** Atstarpes platums fonta vienībās pie izmēra 1 (2/3 no mazo burtu augstuma). */
 export const SPACE_ADVANCE = 300
-/** Vieta, ko aizņem neuzrakstīta rakstzīme. */
+/** Vieta, ko aizņem neuzrakstīta rakstzīme, pie izmēra 1. */
 export const MISSING_ADVANCE = 420
 /** Attālums starp pamatlīnijām kā daļa no (augšējā − apakšējā robeža); rezerve zīmēm. */
 export const DEFAULT_LINE_HEIGHT = 1.15
@@ -22,6 +25,15 @@ export const DEFAULT_LINE_HEIGHT = 1.15
  * daļa), un tas nedrīkst tikt nogriezts. Starp rindām to sedz rindstarpas rezerve.
  */
 export const TRICE_MARGIN = 50
+
+// Ar stila izmēru mērogojas glifi un metrika (core/metrics.ts); atstarpes un rezerves aug līdzi,
+// rēķinātas no metrikas mazo burtu augstuma. Tā tās ir zināmas arī no kartītes datiem
+// (Card.metrics) bez atsevišķa izmēra lauka. Tikai veseli skaitļi.
+const proportional = (value: number, metrics: FontMetrics) => Math.round((value * metrics.xHeight) / BASE_X_HEIGHT)
+
+export const spaceAdvance = (metrics: FontMetrics) => proportional(SPACE_ADVANCE, metrics)
+export const missingAdvance = (metrics: FontMetrics) => proportional(MISSING_ADVANCE, metrics)
+export const triceMargin = (metrics: FontMetrics) => proportional(TRICE_MARGIN, metrics)
 
 export type LayoutOptions = {
   /** Rindas platums fonta vienībās. */
@@ -82,7 +94,9 @@ export function layoutText(text: string, font: CompiledFont, charset: Charset, o
 
   const seed = options.seed ?? 0
   const trice = options.trice !== false
-  const margin = trice ? TRICE_MARGIN : 0
+  const margin = trice ? triceMargin(font.metrics) : 0
+  const space = spaceAdvance(font.metrics)
+  const missingWidth = missingAdvance(font.metrics)
 
   // Rakstzīmes tiek prasītas teksta secībā, tāpēc skaitītāji atbilst parādīšanās kārtai.
   const pickVariant = createVariantPicker(seed)
@@ -91,7 +105,7 @@ export function layoutText(text: string, font: CompiledFont, charset: Charset, o
     const index = count++
     const variants = font.glyphs[char]
     // Neuzrakstīta rakstzīme paliek tukša vieta; cita burta glifu tās vietā neņem nekad.
-    if (!variants || variants.length === 0) return { char, variant: 0, advance: MISSING_ADVANCE, missing: true, index }
+    if (!variants || variants.length === 0) return { char, variant: 0, advance: missingWidth, missing: true, index }
     const variant = pickVariant(char, variants.length)
     return { char, variant, advance: variants[variant]!.advance, missing: false, index }
   }
@@ -109,7 +123,7 @@ export function layoutText(text: string, font: CompiledFont, charset: Charset, o
     }
     for (const wordText of paragraph === '' ? [] : paragraph.split(' ')) {
       let word = [...wordText].map(item)
-      const needed = () => (row.length > 0 ? SPACE_ADVANCE : 0) + widthOf(word)
+      const needed = () => (row.length > 0 ? space : 0) + widthOf(word)
       if (row.length > 0 && rowWidth + needed() > maxWidth) flush()
       // Vārds, kas garāks par rindu, tiek lauzts pa burtiem; katrā rindā vismaz viens.
       while (widthOf(word) > maxWidth && word.length > 1) {
@@ -135,13 +149,13 @@ export function layoutText(text: string, font: CompiledFont, charset: Charset, o
   }
 
   rows.forEach((row, index) => {
-    const width = row.reduce((sum, word) => sum + widthOf(word), 0) + Math.max(0, row.length - 1) * SPACE_ADVANCE
+    const width = row.reduce((sum, word) => sum + widthOf(word), 0) + Math.max(0, row.length - 1) * space
     const x0 = options.align === 'center' ? Math.floor((maxWidth - width) / 2) : 0
     const y = margin + ascender + index * lineAdvance
     layout.lines.push({ x: x0, y, width })
     let x = x0
     row.forEach((word, wordIndex) => {
-      if (wordIndex > 0) x += SPACE_ADVANCE
+      if (wordIndex > 0) x += space
       for (const { char, variant, advance, missing, index: place } of word) {
         if (missing) {
           layout.missing.push({ char, x, y, advance })

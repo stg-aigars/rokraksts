@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { getCharset } from './charsets'
 import type { CompiledFont, CompiledGlyph } from './font'
-import { MISSING_ADVANCE, SPACE_ADVANCE, TRICE_MARGIN, layoutText as layoutWithTrice, prepareText } from './layout'
+import {
+  MISSING_ADVANCE,
+  SPACE_ADVANCE,
+  TRICE_MARGIN,
+  layoutText as layoutWithTrice,
+  missingAdvance,
+  prepareText,
+  spaceAdvance,
+} from './layout'
 import type { Layout, LayoutOptions } from './layout'
 import { triceAt, triceMatrix } from './trice'
 
@@ -160,6 +168,13 @@ describe('neuzrakstītas rakstzīmes', () => {
     expect(chars(layout)).toBe('a')
     expect(layout.missingChars).toEqual(['A'])
   })
+
+  it('neuzrakstīts Ā netiek aizstāts ne ar A, ne ar ā', () => {
+    const layout = layoutText('ĀAā', fakeFont({ A: 500, ā: 450 }), lv, { maxWidth: 5000 })
+    expect(chars(layout)).toBe('Aā')
+    expect(layout.missingChars).toEqual(['Ā'])
+    expect(layout.missing[0]).toEqual({ char: 'Ā', x: 0, y: 700, advance: MISSING_ADVANCE })
+  })
 })
 
 /** Mākslīgs fonts, kur katram burtam ir vairāki varianti ar dažādiem platumiem. */
@@ -176,6 +191,32 @@ function variantFont(advances: Record<string, number[]>): CompiledFont {
 }
 
 const variantsOf = (layout: Layout, char: string) => layout.glyphs.filter((g) => g.char === char).map((g) => g.variant)
+
+describe('atstarpes atkarībā no izmēra', () => {
+  it('ar noklusējuma mazo burtu augstumu atstarpe ir 300 un neuzrakstītas zīmes vieta 420', () => {
+    expect(spaceAdvance(font.metrics)).toBe(SPACE_ADVANCE)
+    expect(missingAdvance(font.metrics)).toBe(MISSING_ADVANCE)
+    expect([SPACE_ADVANCE, MISSING_ADVANCE]).toEqual([300, 420])
+  })
+
+  it('lielākam fontam atstarpe un tukšā vieta ir proporcionāli lielāka, veseli skaitļi', () => {
+    const big = { ...font.metrics, xHeight: 563 }
+    expect(spaceAdvance(big)).toBe(375)
+    expect(missingAdvance(big)).toBe(525)
+    const big2 = { ...font, metrics: { ...font.metrics, ascender: 875, descender: -313, xHeight: 563 } }
+    const layout = layoutText('a z', big2, lv, { maxWidth: 5000 })
+    expect(layout.missing[0]!.x).toBe(500 + 375)
+    expect(layout.missing[0]!.advance).toBe(525)
+  })
+
+  it('trices rezerve virs un zem teksta aug kopā ar izmēru', () => {
+    const big = { ...font, metrics: { ...font.metrics, ascender: 875, descender: -313, xHeight: 563 } }
+    const layout = layoutWithTrice('a', big, lv, { maxWidth: 5000 })
+    expect(layout.lines[0]!.y).toBe(63 + 875)
+    expect(layout.height).toBe(875 + 313 + 2 * 63)
+    expect(layoutWithTrice('a', font, lv, { maxWidth: 5000 }).lines[0]!.y).toBe(TRICE_MARGIN + 700)
+  })
+})
 
 describe('variantu maiņa', () => {
   const three = variantFont({ a: [500, 510, 520], b: [400, 410], c: [300] })

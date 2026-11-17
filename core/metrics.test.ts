@@ -77,6 +77,14 @@ describe('vertikālā metrika', () => {
     expect(lowFont.descender).toBe(buildOutline(low).bounds!.yMin)
   })
 
+  it('ar izmēru laukuma līniju minimumi mērogojas kopā ar glifiem', () => {
+    expect(fontMetrics([], { scale: 1.2 })).toEqual({ upm: 1000, ascender: 840, descender: -300, xHeight: 540, capHeight: 840 })
+    expect(fontMetrics([], { scale: 0.85 })).toEqual({ upm: 1000, ascender: 595, descender: -212, xHeight: 383, capHeight: 595 })
+    const small = compileFont({ ...fixtureProject(['a', 'o']), style: { ...style, scale: 0.8 } }).metrics
+    expect(small.ascender).toBe(560)
+    expect(small.descender).toBe(-200)
+  })
+
   it('mazo un lielo burtu augstums nāk no laukuma līnijām', () => {
     const { xHeight, capHeight } = compileFont(fixtureProject()).metrics
     expect(xHeight).toBe(PAD.lines.xHeight)
@@ -116,6 +124,16 @@ describe('fonta kompilēšana', () => {
     expect(second.glyphs['a']![0]).toBe(first.glyphs['a']![0])
     expect(second.glyphs['b']![0]).not.toBe(first.glyphs['b']![0])
     expect(second.glyphs['b']![0]).toEqual(compileVariant({ strokes: fixtureStrokes('d') }, project.style))
+  })
+
+  it('slīpums un izmērs: glifs joprojām sākas pie kreisās atstarpes, un nekas neiziet ārpus platuma', () => {
+    for (const variant of [{ ...style, slant: 0.35, scale: 1.25 }, { ...style, slant: -0.2, scale: 0.8, spacing: 0.04 }]) {
+      for (const [char, strokes] of Object.entries(fixtureGlyphs)) {
+        const glyph = compileVariant({ strokes }, variant)
+        expect(glyph.bounds.xMin, char).toBe(sideBearing(variant))
+        expect(glyph.advance, char).toBe(glyph.bounds.xMax + sideBearing(variant))
+      }
+    }
   })
 
   it('stila maiņa pārrēķina visus glifus', () => {

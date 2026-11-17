@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fixtureCases, fixtureGlyphs, fixtureStrokes } from '../tests/fixtures/strokes'
+import { fixtureCases, fixtureGlyphs, fixtureMore, fixtureStrokes } from '../tests/fixtures/strokes'
 import {
   MAX_GLYPH_POINTS,
   PEN_SIZE,
@@ -13,7 +13,7 @@ import {
 import type { GlyphOutline } from './outline'
 import type { Point, Stroke } from './types'
 
-const everything = { ...fixtureGlyphs, ...fixtureCases }
+const everything = { ...fixtureGlyphs, ...Object.fromEntries(fixtureMore), ...fixtureCases }
 
 const contourAreas = (outline: GlyphOutline) => outline.contours.map((c) => ringArea(flattenContour(c, 16)))
 const totalArea = (outline: GlyphOutline) => contourAreas(outline).reduce((sum, a) => sum + a, 0)
@@ -57,10 +57,13 @@ describe('vilcieni -> kontūra', () => {
       expect(bounds!.xMax, name).toBeGreaterThan(Math.max(...xs) - 4)
       expect(bounds!.yMin, name).toBeLessThan(Math.min(...ys) + 4)
       expect(bounds!.yMax, name).toBeGreaterThan(Math.max(...ys) - 4)
-      expect(bounds!.xMin, name).toBeGreaterThan(Math.min(...xs) - PEN_SIZE)
-      expect(bounds!.xMax, name).toBeLessThan(Math.max(...xs) + PEN_SIZE)
-      expect(bounds!.yMin, name).toBeGreaterThan(Math.min(...ys) - PEN_SIZE)
-      expect(bounds!.yMax, name).toBeLessThan(Math.max(...ys) + PEN_SIZE)
+      // Robežkastē ir arī vadības punkti; asā savienojumā (cipara 8 viduklis) tie drīkst nedaudz
+      // pārsniegt pildspalvu.
+      const reach = PEN_SIZE + 12
+      expect(bounds!.xMin, name).toBeGreaterThan(Math.min(...xs) - reach)
+      expect(bounds!.xMax, name).toBeLessThan(Math.max(...xs) + reach)
+      expect(bounds!.yMin, name).toBeGreaterThan(Math.min(...ys) - reach)
+      expect(bounds!.yMax, name).toBeLessThan(Math.max(...ys) + reach)
     }
   })
 
@@ -156,6 +159,53 @@ describe('līnijas platums', () => {
   it('vilciens ar vienādiem laikiem (t nemainās) nesalūst', () => {
     const frozen: Stroke = { points: straight(10).points.map((p) => ({ ...p, t: 0 })) }
     expect(buildOutline([frozen]).contours).toHaveLength(1)
+  })
+})
+
+describe('slīpums un izmērs (4. posms)', () => {
+  const l = fixtureStrokes('l')
+  const style = (slant: number, scale = 1) => ({ strokeWidth: 1, slant, scale })
+
+  it('bez slīpuma un ar izmēru 1 kontūra ir tieši tāda pati kā līdz šim', () => {
+    for (const [name, strokes] of Object.entries(everything)) {
+      expect(buildOutline(strokes, style(0)), name).toEqual(buildOutline(strokes))
+    }
+  })
+
+  it('pozitīvs slīpums sasver burtu pa labi: augša pa labi, pamatlīnijas tuvums gandrīz vietā', () => {
+    const upright = buildOutline(l).bounds!
+    const slanted = buildOutline(l, style(0.3)).bounds!
+    // "l" ir no 0 līdz 700: augšējais gals pabīdās par (700 − 225) · 0,3 ≈ 143 pa labi, apakšējais par 68 pa kreisi.
+    expect(slanted.xMax - upright.xMax).toBeGreaterThan(125)
+    expect(slanted.xMin - upright.xMin).toBeLessThan(-55)
+    // Augstums nemainās (robežkastē ir vadības punkti, tāpēc dažu vienību atšķirība).
+    expect(Math.abs(slanted.yMax - upright.yMax)).toBeLessThanOrEqual(8)
+    expect(Math.abs(slanted.yMin - upright.yMin)).toBeLessThanOrEqual(8)
+    const back = buildOutline(l, style(-0.2)).bounds!
+    expect(back.xMin).toBeLessThan(upright.xMin - 70)
+  })
+
+  it('izmērs palielina visu glifu, arī līnijas biezumu', () => {
+    const normal = buildOutline(l).bounds!
+    const big = buildOutline(l, style(0, 1.25)).bounds!
+    expect((big.yMax - big.yMin) / (normal.yMax - normal.yMin)).toBeCloseTo(1.25, 1)
+    // "l" ir šaurs (tikai pildspalvas biezums), tāpēc platumā noapaļošana jūtamāka.
+    expect((big.xMax - big.xMin) / (normal.xMax - normal.xMin)).toBeGreaterThan(1.1)
+    const o = buildOutline(fixtureStrokes('o')).bounds!
+    const bigO = buildOutline(fixtureStrokes('o'), style(0, 1.25)).bounds!
+    expect((bigO.xMax - bigO.xMin) / (o.xMax - o.xMin)).toBeCloseTo(1.25, 1)
+  })
+
+  it('ar jebkuru stilu kontūrā ir tikai veseli skaitļi, glifs ietilpst 60 mezglos un caurumi paliek', () => {
+    for (const s of [style(0.35, 1.25), style(-0.2, 0.8)]) {
+      for (const [name, strokes] of Object.entries(everything)) {
+        const outline = buildOutline(strokes, s)
+        expect(pointCount(outline), name).toBeLessThanOrEqual(MAX_GLYPH_POINTS)
+        expect(outlineToPath(outline), name).toMatch(/^(M-?\d+ -?\d+([LC][-\d ]+)+Z)+$/)
+      }
+      // "o" joprojām ir gredzens ar caurumu.
+      expect(contourAreas(buildOutline(fixtureStrokes('o'), s)).filter((a) => a < 0)).toHaveLength(1)
+    }
   })
 })
 
