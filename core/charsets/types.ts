@@ -38,6 +38,11 @@ export type Charset = {
    */
   guides: Readonly<Record<string, readonly (readonly number[])[]>>
   /**
+   * Rakstīto burtu (skolas raksta) paraugi tādā pašā formā kā `guides`; tikai burtiem. Lietotājs tos
+   * izvēlas ar "Rakstītie"; zīmēm, kurām rakstītās formas nav, paliek `guides`.
+   */
+  cursiveGuides: Readonly<Record<string, readonly (readonly number[])[]>>
+  /**
    * Burti ar zīmi (garumzīme, jumtiņš, komats): tiem paraugs ir ieslēgts pēc noklusējuma, jo tas
    * rāda, kur likt zīmi; parauga pēdējais vilciens ir zīme. Pārējām zīmēm paraugs ir izslēgts, lai
    * rokraksts neatdarinātu mūsu veidni, un to ieslēdz pats lietotājs.

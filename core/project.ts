@@ -10,6 +10,8 @@ import type { FontProject, FontStyle, Stroke } from './types'
 // 10. sadaļā; viss pārējais (atvērtais variants, aplis, paraugs, lietotāja teksts, trūkstošo
 // zīmju rinda) ir tikai sesijas stāvoklis.
 
+export type GuideStyle = 'print' | 'cursive'
+
 export type Session = {
   project: FontProject
   /** Rakstzīme, kas šobrīd atvērta zīmēšanai. */
@@ -27,6 +29,8 @@ export type Session = {
   ghost: boolean
   /** Vai rādīt blāvo paraugu pārējām zīmēm (burtiem bez zīmes, cipariem, pieturzīmēm); pēc noklusējuma nē. */
   ghostPlain: boolean
+  /** Parauga forma: drukātie (noklusējums) vai rakstītie burti (skolas raksts). */
+  guideStyle: GuideStyle
   /** Lietotāja teksts priekšskatījumam; tukšs nozīmē rakstzīmju kopas parauga tekstu. Paliek ierīcē. */
   text: string
   /**
@@ -64,6 +68,7 @@ export function createSession(id: string, createdAt: string): Session {
     lap: false,
     ghost: true,
     ghostPlain: false,
+    guideStyle: 'print',
     text: '',
     queue: [],
   }
@@ -316,7 +321,19 @@ export function hasGuide(session: Session): boolean {
  */
 export function guideStrokes(session: Session): readonly (readonly number[])[] {
   if (!ghostOn(session)) return []
-  return getCharset(session.project.charset).guides[session.current] ?? []
+  const charset = getCharset(session.project.charset)
+  const cursive = session.guideStyle === 'cursive' ? charset.cursiveGuides[session.current] : undefined
+  return cursive ?? charset.guides[session.current] ?? []
+}
+
+/** Vai atvērtajai zīmei ir rakstītā forma (burtiem jā, cipariem un pieturzīmēm nē). */
+export function hasCursiveGuide(session: Session): boolean {
+  return getCharset(session.project.charset).cursiveGuides[session.current] !== undefined
+}
+
+/** Pārslēdz parauga formu: drukātie ↔ rakstītie. Izvēle attiecas uz visām zīmēm. */
+export function toggleGuideStyle(session: Session): Session {
+  return { ...session, guideStyle: session.guideStyle === 'cursive' ? 'print' : 'cursive' }
 }
 
 // --- jebkuras zīmes atvēršana (glifu režģis, pieskāriens priekšskatījumam) ---

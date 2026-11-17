@@ -187,6 +187,14 @@ Ceļš: vilcieni → `outline` → `metrics` → `font` (sakompilēti glifi) →
   garumzīme un jumtiņš brīvajā joslā virs 700. `guideStrokes(session)` → `DrawPad` prop `guide`, zīmēts
   ar necaurredzamību 0,16; `onStroke` to neredz, tāpēc glifā tas nenonāk. Tās pašas formas lieto etalona
   ģenerators, tāpēc pēc formu maiņas jāpārģenerē abi un `strokes.json` izmaiņas jāpārskata.
+- **Rakstītie burti** (īpašnieka lēmums 4. posmā): poga "Rakstītie" (redzama, kad paraugs ieslēgts un
+  zīmei ir rakstītā forma) maina parauga formu; `session.guideStyle` ir `'print'` (noklusējums) vai
+  `'cursive'`, attiecas uz visām zīmēm. Formas ir `scripts/cursive-shapes.mjs` (mūsu pašu Catmull–Rom
+  līknes pēc skolas raksta kanona, nevis attēla kopija), tikai 74 burtiem; `generate-guides.mjs` tās
+  ieraksta `lvCursiveGuides` → `charset.cursiveGuides`; cipariem un pieturzīmēm paliek drukātā forma.
+  Rakstītajiem Ģ un ģ zīme ir augšā (jumtiņam līdzīga, kā skolas paraugā); drukātajā lielajam Ģ komats
+  ir apakšā. Etalona vilcieni paliek drukātie. Lai josla ietilptu, poga "Dzēst variantu" redzamajā tekstā
+  ir "Dzēst" (pieejamības nosaukums nemainīts).
 - **Priekšskatījums** lieto nemainīgu `PREVIEW_SEED` = 1. Pievienojot variantu, burti rindā pabīdās
   (cits platums), bet pārējo burtu kontūra, rotācija un mērogs paliek.
 - **E2E:** `tests/e2e/variants.spec.ts` (tikai telefona projektā): variantu pievienošana, pārzīmēšana,

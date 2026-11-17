@@ -328,3 +328,51 @@ test('paraugu var ieslēgt arī zīmēm bez zīmes: burtiem, cipariem, pieturzī
   // Punkta paraugs ir nogrieznis uz sevi (apaļi gali), tāpēc tā robežkaste ir tukša: skaita ceļus.
   await expect(guide.locator('path')).toHaveCount(1)
 })
+
+test('parauga forma "Rakstītie": skolas raksta burti; cipariem paliek drukātais; izvēle saglabājas', async ({ page }) => {
+  const guide = page.getByTestId('ghost')
+  const cursive = button(page, 'Rakstītie')
+  const pathOf = (points: readonly number[]) =>
+    points.reduce((d, v, i) => (i % 2 === 0 ? `${d}${i === 0 ? 'M' : 'L'}${v}` : `${d} ${950 - v}`), '')
+
+  // "a" ar diviem variantiem: josla ar "+", "Dzēst", "Paraugs" un "Rakstītie" ietilpst platumā.
+  await touchStroke(page, [0.35, 0.45], [0.6, 0.65])
+  await button(page, 'Pievienot variantu').click()
+  await touchStroke(page, [0.35, 0.45], [0.6, 0.65])
+  // Burtam bez zīmes paraugs ir izslēgts, tāpēc formas izvēles vēl nav.
+  await expect(cursive).toHaveCount(0)
+  await button(page, 'Paraugs').click()
+  await expect(cursive).toHaveAttribute('aria-pressed', 'false')
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+  expect(overflow).toBeLessThanOrEqual(0)
+  await expect(cursive).toBeInViewport({ ratio: 1 })
+
+  await cursive.click()
+  await expect(cursive).toHaveAttribute('aria-pressed', 'true')
+  await expect(guide.locator('path')).toHaveCount(lv.cursiveGuides['a']!.length)
+  await expect(guide.locator('path').first()).toHaveAttribute('d', pathOf(lv.cursiveGuides['a']![0]!))
+
+  // Rakstītajam ģ zīme ir augšā (virs mazo burtu augstuma), kā skolas paraugā.
+  await button(page, 'Visas zīmes').click()
+  await cell(page, 'ģ').click()
+  await expect(guide.locator('path')).toHaveCount(lv.cursiveGuides['ģ']!.length)
+  const xHeight = (await pad(page).locator('[data-line="x-height"]').boundingBox())!.y
+  const mark = (await guide.locator('path').last().boundingBox())!
+  expect(mark.y + mark.height).toBeLessThan(xHeight)
+
+  // Cipariem rakstītās formas nav: paraugs ir drukātais, un izvēles poga nav redzama.
+  await button(page, 'Visas zīmes').click()
+  await cell(page, '7').click()
+  await expect(cursive).toHaveCount(0)
+  await expect(guide.locator('path')).toHaveCount(lv.guides['7']!.length)
+
+  // Izvēle saglabājas pēc pārlādes.
+  await button(page, 'Visas zīmes').click()
+  await cell(page, 'Ā').click()
+  await expect(guide.locator('path').last()).toHaveAttribute('d', pathOf(lv.cursiveGuides['Ā']!.at(-1)!))
+  await saved(page)
+  await page.reload()
+  await expect(cursive).toHaveAttribute('aria-pressed', 'true')
+  await cursive.click()
+  await expect(guide.locator('path').last()).toHaveAttribute('d', pathOf(lv.guides['Ā']!.at(-1)!))
+})

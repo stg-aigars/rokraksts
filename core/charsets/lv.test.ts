@@ -128,6 +128,49 @@ describe('latviešu rakstzīmju kopa', () => {
       }
     })
 
+    describe('rakstītie burti (izvēle "Rakstītie")', () => {
+      const cursive = lv.cursiveGuides
+      const letters = lv.groups.filter((g) => g.id === 'lower' || g.id === 'lower-extra' || g.id === 'upper').flatMap((g) => [...g.chars])
+      const cmark = (c: string) => cursive[c]!.at(-1)!
+      const cletter = (c: string) => cursive[c]!.slice(0, -1)
+
+      it('ir visiem 74 burtiem un tikai tiem; cipariem un pieturzīmēm paliek drukātais paraugs', () => {
+        expect(Object.keys(cursive).sort()).toEqual([...letters].sort())
+      })
+
+      it('ir veseli skaitļi laukuma robežās', () => {
+        for (const [char, strokes] of Object.entries(cursive)) {
+          for (const stroke of strokes) {
+            expect(stroke.length % 2, char).toBe(0)
+            expect(stroke.length, char).toBeGreaterThanOrEqual(4)
+            expect(stroke.every(Number.isInteger), char).toBe(true)
+            expect(Math.min(...xs(stroke)), char).toBeGreaterThanOrEqual(0)
+            expect(Math.max(...xs(stroke)), char).toBeLessThanOrEqual(PAD.width)
+            expect(Math.min(...ys(stroke)), char).toBeGreaterThanOrEqual(PAD.bottom)
+            expect(Math.max(...ys(stroke)), char).toBeLessThanOrEqual(PAD.top)
+          }
+        }
+      })
+
+      it('garumzīme un jumtiņš ir virs burta; rakstītajiem Ģ un ģ zīme arī ir augšā (kā skolas paraugā)', () => {
+        for (const c of 'āčēīšūžģ') {
+          expect(Math.min(...ys(cmark(c))), c).toBeGreaterThan(PAD.lines.xHeight + 60)
+          expect(Math.max(...cletter(c).flatMap(ys)), c).toBeLessThanOrEqual(PAD.lines.xHeight + 20)
+        }
+        for (const c of 'ĀČĒĪŠŪŽĢ') {
+          expect(Math.min(...ys(cmark(c))), c).toBeGreaterThan(PAD.lines.ascender + 60)
+          expect(Math.max(...cletter(c).flatMap(ys)), c).toBeLessThanOrEqual(PAD.lines.ascender + 20)
+        }
+      })
+
+      it('ķ ļ ņ Ķ Ļ Ņ: komats zem pamatlīnijas', () => {
+        for (const c of 'ķļņĶĻŅ') {
+          expect(Math.max(...ys(cmark(c))), c).toBeLessThanOrEqual(-80)
+          expect(Math.min(...ys(cmark(c))), c).toBeGreaterThanOrEqual(PAD.lines.descender)
+        }
+      })
+    })
+
     it('garumzīme un jumtiņš ir virs mazo burtu augstuma, brīvi no burta', () => {
       for (const c of 'āčēīšūž') {
         expect(Math.min(...ys(mark(c))), c).toBeGreaterThan(PAD.lines.xHeight + 60)

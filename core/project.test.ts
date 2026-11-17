@@ -16,6 +16,8 @@ import {
   endQueue,
   ghostOn,
   guideStrokes,
+  hasCursiveGuide,
+  toggleGuideStyle,
   goBack,
   goNext,
   hasGuide,
@@ -628,5 +630,38 @@ describe('priekšskatījuma teksts rakstot', () => {
     expect(previewText(openChar(s, 'ā'))).toBe('Sveiks, Mārīt!')
     expect(previewText(openChar(s, 'Ķ'))).toBe(lv.groupSamples.upper)
     expect(previewText(openChar(setText(fresh(), 'Ā'), 'Ā'))).toBe('Ā')
+  })
+})
+
+describe('rakstīto burtu paraugs', () => {
+  it('pēc noklusējuma paraugs ir drukātais; izvēle "Rakstītie" rāda rakstīto formu', () => {
+    const s = fresh()
+    expect(s.guideStyle).toBe('print')
+    const atMacron = goNext(addStroke(s, stroke(100)))
+    expect(guideStrokes(atMacron)).toBe(lv.guides['ā'])
+    const cursive = toggleGuideStyle(atMacron)
+    expect(cursive.guideStyle).toBe('cursive')
+    expect(guideStrokes(cursive)).toBe(lv.cursiveGuides['ā'])
+    expect(toggleGuideStyle(cursive).guideStyle).toBe('print')
+  })
+
+  it('izvēle attiecas uz visiem burtiem; cipariem un pieturzīmēm rakstītās formas nav, tur paliek drukātā', () => {
+    const s = toggleGhost(toggleGuideStyle(fresh()))
+    expect(guideStrokes(openChar(s, 'Ģ'))).toBe(lv.cursiveGuides['Ģ'])
+    expect(hasCursiveGuide(openChar(s, 'Ģ'))).toBe(true)
+    expect(hasCursiveGuide(openChar(s, '7'))).toBe(false)
+    expect(guideStrokes(openChar(s, '7'))).toBe(lv.guides['7'])
+  })
+
+  it('izslēgts paraugs paliek izslēgts arī ar rakstīto formu', () => {
+    expect(guideStrokes(toggleGuideStyle(fresh()))).toEqual([])
+  })
+
+  it('izvēle glabājas; vecs ieraksts ielādējas ar drukāto', () => {
+    const s = toggleGuideStyle(fresh())
+    expect(parseSession(JSON.parse(JSON.stringify(s)))).toEqual(s)
+    const old: Partial<Session> = fresh()
+    delete old.guideStyle
+    expect(parseSession(JSON.parse(JSON.stringify(old)))!.guideStyle).toBe('print')
   })
 })

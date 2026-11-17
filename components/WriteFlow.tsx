@@ -19,6 +19,7 @@ import {
   endQueue,
   ghostOn,
   guideStrokes,
+  hasCursiveGuide,
   goBack,
   goNext,
   hasGuide,
@@ -32,6 +33,7 @@ import {
   startLap,
   startQueue,
   toggleGhost,
+  toggleGuideStyle,
   undoStroke,
   variantCount,
 } from '@/core/project'
@@ -64,7 +66,8 @@ const small = `h-9 shrink-0 rounded-full px-3 text-sm font-medium ring-1 ring-in
 /**
  * Burtu rakstīšana (PRD 4. sadaļas 3.–7. solis); stāvoklis glabājas IndexedDB.
  * Variantus pievieno, pārzīmē un dzēš turpat zem uzvednes: pogas "1 2 3" atver variantu,
- * "+" pievieno jaunu, Notīrīt un rakstīšana no jauna to pārzīmē, "Dzēst variantu" izņem.
+ * "+" pievieno jaunu, Notīrīt un rakstīšana no jauna to pārzīmē, "Dzēst" izņem. "Paraugs" ieslēdz blāvo paraugu,
+ * "Rakstītie" maina tā formu no drukātajiem uz rakstītajiem burtiem.
  * Burtu var izlaist. "Visas zīmes" ir pārskats pār visu kopu, "Teksts un stils" ir savs teksts,
  * trūkstošās zīmes un stils. Pieskāriens glifam priekšskatījumā vai režģī atver to pārzīmēšanai.
  */
@@ -238,10 +241,11 @@ export function WriteFlow() {
         <button
           type="button"
           className={`${small} bg-white`}
+          aria-label="Dzēst variantu"
           disabled={!canDeleteVariant(session)}
           onClick={() => update(deleteVariant)}
         >
-          Dzēst variantu
+          Dzēst
         </button>
         {hasGuide(session) ? (
           <button
@@ -251,6 +255,17 @@ export function WriteFlow() {
             onClick={() => update(toggleGhost)}
           >
             Paraugs
+          </button>
+        ) : null}
+        {ghostOn(session) && hasCursiveGuide(session) ? (
+          <button
+            type="button"
+            aria-pressed={session.guideStyle === 'cursive'}
+            title="Parauga forma: rakstītie (skolas raksts) vai drukātie burti"
+            className={`${small} ${session.guideStyle === 'cursive' ? 'bg-ink text-white' : 'bg-white'}`}
+            onClick={() => update(toggleGuideStyle)}
+          >
+            Rakstītie
           </button>
         ) : null}
       </div>

@@ -8,6 +8,7 @@
 
 import { writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
+import { cursive } from './cursive-shapes.mjs'
 import { moreShapes, shapes } from './letter-shapes.mjs'
 
 const TOLERANCE = 1.5
@@ -42,14 +43,17 @@ function simplify(points) {
 const all = [...Object.entries(shapes), ...moreShapes]
 const marked = all.map(([char]) => char).filter((char) => char.normalize('NFD').length > 1)
 
-const entries = all.map(([char, list]) => {
+const entry = ([char, list]) => {
   const strokes = list.map((shape) => {
     const points = simplify(shape).flatMap(([x, y]) => [Math.round(x), Math.round(y)])
     // Punkts (viens pieskāriens) kļūst par nogriezni uz sevi; ar noapaļotiem galiem tas ir punkts.
     return points.length === 2 ? [...points, ...points] : points
   })
   return `  ${JSON.stringify(char)}: [\n${strokes.map((s) => `    [${s.join(', ')}],`).join('\n')}\n  ],`
-})
+}
+const entries = all.map(entry)
+// Rakstītie burti (scripts/cursive-shapes.mjs): tikai burtiem, tādā pašā secībā kā drukātie.
+const cursiveEntries = all.filter(([char]) => cursive[char]).map(([char]) => entry([char, cursive[char]]))
 
 const source = `// ĢENERĒTS FAILS: node scripts/generate-guides.mjs. Ar roku nelabot.
 // Blāvie paraugi visām zīmēm: katrs vilciens ir lauzta līnija [x0, y0, x1, y1, ...] fonta
@@ -57,6 +61,13 @@ const source = `// ĢENERĒTS FAILS: node scripts/generate-guides.mjs. Ar roku n
 
 export const lvGuides: Readonly<Record<string, readonly (readonly number[])[]>> = {
 ${entries.join('\n')}
+}
+
+/**
+ * Rakstīto burtu (skolas raksta) paraugi; tikai burtiem. Rakstītajiem Ģ un ģ zīme ir augšā.
+ */
+export const lvCursiveGuides: Readonly<Record<string, readonly (readonly number[])[]>> = {
+${cursiveEntries.join('\n')}
 }
 
 /** Burti ar zīmi: tiem paraugs ir ieslēgts pēc noklusējuma. */
