@@ -26,16 +26,16 @@ Pirms katra commit jāiziet tīri: `lint`, `typecheck`, `test`, `build`. CI papi
 - Saskarnes teksti, testu nosaukumi un komentāri ir latviski; identifikatori kodā angliski.
 - Viss glabājas GitHub; lokālu kopiju nav, tāpēc darbs ir pabeigts tikai tad, kad tas ir nosūtīts.
 
-**Stāvoklis:** 0. posms (pamats), 1. posms (zīmēšanas laukums), 2. posms (kodols) un 3. posms
-(latviešu burti: varianti, trice, blāvais paraugs) pabeigti. Nākamais ir 4. posms: lielie burti,
-cipari, pieturzīmes, pielāgošana (biezums, atstarpes, slīpums) un "trūkst zīmes" plūsma.
+**Stāvoklis:** 0.–4. posms pabeigti: pamats, zīmēšanas laukums, kodols, latviešu burti (varianti,
+trice, blāvais paraugs) un 4. posms (visas 99 zīmes, stils, "trūkst zīmes" plūsma, glifu režģis).
+Nākamais ir 5. posms: kartītes redaktors, foni, 3 formāti, PNG, `navigator.share`, poga "Sajaukt".
 
 ## Struktūra un robežas
 
 ```
 core/         tīrs TypeScript bez DOM; testi blakus failiem (*.test.ts)
 app/          Next.js App Router: (create)/, vēlāk (card)/, k/[id]/, api/cards/
-components/   React komponentes (DrawPad, WriteFlow, Preview; vēlāk GlyphGrid, CardCanvas)
+components/   React komponentes (DrawPad, WriteFlow, Preview, GlyphGrid, TextStyle; vēlāk CardCanvas)
 lib/          pārlūka puses palīgkods, kas nav komponente (project-store: IndexedDB caur idb)
 scripts/      ģeneratori: letter-shapes.mjs (burtu formas), generate-guides.mjs (blāvie paraugi)
 tests/        e2e/ (Playwright), spikes/ (bibliotēku pārbaudes), fixtures/ (etalona vilcieni un
@@ -76,8 +76,8 @@ types/        tipu deklarācijas bibliotēkām bez saviem tipiem
 - Sesija (`core/project.ts`) ir `FontProject` plus atvērtā rakstzīme un 3. posma lauki (`variant`,
   `fresh`, `lap`, `ghost`); `FontProject` paliek kā PRD 10. sadaļā. IndexedDB: datubāze `rokraksts`, krātuve `session`, atslēga `current`. Ielādējot
   validē ar zod (`core/schema.ts`); nederīgs ieraksts nozīmē jaunu projektu.
-- "Tālāk" ir aktīva tikai tad, kad atvērtajam burtam ir vismaz viens variants (aplī "Uzraksti vēlreiz"
-  burtu drīkst izlaist). Burtu izlaišana pirmajā aplī un "trūkst zīmes" plūsma nāk 4. posmā.
+- Neuzrakstītu burtu var izlaist: poga saucas "Izlaist", pēc pirmā vilciena "Tālāk" (rindas pēdējai
+  zīmei "Gatavs"). Izlaistais paliek neuzrakstīts; aplis "Uzraksti vēlreiz" gaida visus 33.
 - E2E gaida `data-state="saved"` uz `save-state` elementa pirms pārlādes; skāriena tests (CDP
   `Input.dispatchTouchEvent`) iet tikai telefona projektā.
 
@@ -97,9 +97,10 @@ Ceļš: vilcieni → `outline` → `metrics` → `font` (sakompilēti glifi) →
   pulksteņrādītāja virzienu (y uz augšu), caurumi pa to. Ja bibliotēka met kļūdu, vilcieni paliek
   neapvienoti ar vienādu virzienu (aizpildījums pareizs, tikai ar pārklājumiem).
 - **Vienkāršošana.** Poligonu pārvērš kubiskās Bezjē līknēs: stūri (pagrieziens virs 50°) ir obligāti
-  mezgli, starp tiem līkni dala, kamēr kļūda pārsniedz pielaidi. Pielaides 1,5 → 2,5 → 4 → 6 vienības
-  izmēģina pēc kārtas, līdz glifs ietilpst 60 punktos. **"Punkts" šeit ir mezgls (segmenta
-  galapunkts); vadības punktus neskaita.** Visi 33 etalona burti ietilpst (10–59 mezgli).
+  mezgli, starp tiem līkni dala, kamēr kļūda pārsniedz pielaidi. Pielaides 1,5 → 2,5 → 4 → 6 → 9 → 13 → 18
+  vienības izmēģina pēc kārtas, līdz glifs ietilpst 60 punktos (lielākās vajag tikai lieliem, slīpiem
+  glifiem; noklusējuma stilā pietiek ar 6). **"Punkts" šeit ir mezgls (segmenta
+  galapunkts); vadības punktus neskaita.** Visas 99 etalona zīmes ietilpst arī ar galējiem stiliem.
 - **`core/metrics.ts`.** Platums = robežkaste + `style.spacing` × 1000 katrā pusē (60 vienības); vieta
   laukumā platumu neietekmē. Augšējā un apakšējā robeža ir uzzīmētā galējie punkti, bet nekad nav
   šaurāka par laukuma līnijām (700 un −250), lai rindas augstums nelēkātu, kamēr uzrakstīti tikai zemi
@@ -109,8 +110,9 @@ Ceļš: vilcieni → `outline` → `metrics` → `font` (sakompilēti glifi) →
   varianta objekta; tas strādā, jo `core/project.ts` jaunu objektu izveido tikai mainītajam burtam.
   Kontūras nekur neglabājam.
 - **`core/layout.ts`.** NFC → aizstāšanas no kopas → atstarpju virknes saplūst → laušana pa vārdiem
-  (pārāk garu vārdu pa burtiem). Atstarpe 300, neuzrakstīta zīme 420 vienības, rindstarpa 1,15 ×
-  (augša − apakša). Variantu un trici nosaka `seed` (skat. "Latviešu burti"). Neuzrakstīta
+  (pārāk garu vārdu pa burtiem). Atstarpe 300, neuzrakstīta zīme 420, trices rezerve 50 vienības pie
+  `xHeight` 450; ar izmēru tās mērogojas proporcionāli `metrics.xHeight` (veseli skaitļi), tāpēc kartītei
+  pietiek ar `Card.metrics`. Rindstarpa 1,15 × (augša − apakša). Variantu un trici nosaka `seed` (skat. "Latviešu burti"). Neuzrakstīta
   rakstzīme nonāk `layout.missing` ar rezervētu vietu un nekad netiek aizstāta ar citu glifu.
 - **`core/render-svg.ts`.** Katrs izmantotais glifa variants vienreiz `<defs>`, tekstā `<use>` (ar trici
   `transform="matrix(...)"`, bez trices `x y`); neuzrakstītās
@@ -123,10 +125,13 @@ Ceļš: vilcieni → `outline` → `metrics` → `font` (sakompilēti glifi) →
 - **Priekšskatījums.** `components/Preview.tsx` zem laukuma rāda `charset.sampleText` (pangramma ar
   mazajiem burtiem, bez punkta) un pārrēķinās pēc katras sesijas izmaiņas. E2E:
   `tests/e2e/preview.spec.ts`, tikai telefona projektā, raksta ar CDP skārieniem.
-- **Etalons.** `tests/fixtures/strokes.json` ģenerē `node tests/fixtures/generate-strokes.mjs` (33 mazie
-  burti, sadaļā `variants` 2. un 3. variants burtiem a i s e t u ā un 2. variants burtiem r ķ, un gadījumi
-  `cilpa`, `spiediens`, `punkts`, `svikajums`); `fixtureProject(chars, { variants: false })` dod pa vienam; testi lasa tikai JSON caur
-  `tests/fixtures/strokes.ts`. Momentuzņēmumi ir `tests/fixtures/snapshots/` (skatāmi SVG un
+- **Etalons.** `tests/fixtures/strokes.json` ģenerē `node tests/fixtures/generate-strokes.mjs`: sadaļā
+  `glyphs` 33 mazie burti, `variants` 2. un 3. variants burtiem a i s e t u ā un 2. variants burtiem r ķ,
+  `cases` gadījumi `cilpa`, `spiediens`, `punkts`, `svikajums`, un (4. posms) `more` pārējās 66 zīmes kā
+  masīvs `[rakstzīme, vilcieni]` (objektā cipari nonāktu pirmie). Katra glifa trīce nāk no tā nosaukuma,
+  tāpēc jaunas zīmes esošos vilcienus nemaina. `fixtureProject()` dod 33 mazos burtus (kā 3. posmā),
+  `fixtureProject(fixtureAll)` visas 99, `{ variants: false }` pa vienam variantam; testi lasa tikai JSON
+  caur `tests/fixtures/strokes.ts`. Momentuzņēmumi ir `tests/fixtures/snapshots/` (skatāmi SVG un
   `konturas.txt`); apzinātu izmaiņu pēc tos atjauno ar `npm test -- -u` un pārskata acīm.
 - **Ātrums.** Etalona glifs uz izstrādes mašīnas pārrēķinās vidēji ap 2 ms, lēnākais (švīkājums) ap
   5 ms; tests prasa zem 25 ms (PRD slieksnis telefonam ir 50 ms). Īstā telefonā vēl nav mērīts.
@@ -158,10 +163,9 @@ Ceļš: vilcieni → `outline` → `metrics` → `font` (sakompilēti glifi) →
   Tāpēc Notīrīt + rakstīt no jauna pārzīmē variantu, nemainot pārējo secību. Tukšu variantu projektā
   neglabā nekad. `deleteVariant` neļauj izdzēst vienīgo variantu. Nemainītie variantu objekti paliek tie
   paši (kontūru kešs).
-- **Saskarne bez GlyphGrid.** Zem uzvednes ir josla: pogas "1 2 3" (atvērt variantu), "+" (pievienot),
-  "Dzēst variantu", un burtiem ar zīmi "Paraugs". PRD 7. sadaļā tas ir pierakstīts; režģis kā
-  pārskats pār visu kopu nav uztaisīts. `DrawPad` atslēga ir `rakstzīme/variants`, lai laika atskaite
-  sāktos no jauna.
+- **Variantu josla.** Zem uzvednes: pogas "1 2 3" (atvērt variantu), "+" (pievienot), "Dzēst variantu",
+  un burtiem ar zīmi "Paraugs". Pārskats pār visu kopu ir 4. posma glifu režģis. `DrawPad` atslēga ir
+  `rakstzīme/variants`, lai laika atskaite sāktos no jauna.
 - **Aplis "Uzraksti vēlreiz".** Piedāvā, kad uzrakstīti visi 33 mazie burti un kādam vēl nav 3 variantu.
   Secība ir `lapOrder(charset)`: `frequentChars`, tad pārējie obligātie burti. Katram atver jaunu
   variantu; Tālāk drīkst arī bez vilcieniem (izlaist), Atpakaļ atver iepriekšējā burta pēdējo variantu,
@@ -174,15 +178,63 @@ Ceļš: vilcieni → `outline` → `metrics` → `font` (sakompilēti glifi) →
   zīme. Burtiem ķ ļ ņ komats ir zem pamatlīnijas un nav savienots ar burtu, mazajam ģ zīme ir augšā.
   `guideStrokes(session)` → `DrawPad` prop `guide`, zīmēts ar necaurredzamību 0,16; `onStroke` to
   neredz, tāpēc glifā tas nenonāk. `session.ghost` pēc noklusējuma ir ieslēgts, poga "Paraugs" to
-  izslēdz, un izvēle glabājas sesijā. Lielajiem burtiem paraugu vēl nav (4. posms: jāpapildina
-  `letter-shapes.mjs`). Tās pašas formas lieto etalona ģenerators, tāpēc pēc formu maiņas jāpārģenerē
-  abi un `strokes.json` izmaiņas jāpārskata.
+  izslēdz, un izvēle glabājas sesijā. Lielajiem burtiem (Ā Č Ē Ģ Ī Ķ Ļ Ņ Š Ū Ž) paraugs ir kopš 4. posma:
+  garumzīme un jumtiņš brīvajā joslā virs 700, Ģ Ķ Ļ Ņ komats apakšā. Tās pašas formas lieto etalona
+  ģenerators, tāpēc pēc formu maiņas jāpārģenerē abi un `strokes.json` izmaiņas jāpārskata.
 - **Priekšskatījums** lieto nemainīgu `PREVIEW_SEED` = 1. Pievienojot variantu, burti rindā pabīdās
   (cits platums), bet pārējo burtu kontūra, rotācija un mērogs paliek.
 - **E2E:** `tests/e2e/variants.spec.ts` (tikai telefona projektā): variantu pievienošana, pārzīmēšana,
   dzēšana; blāvais paraugs (arī komata vieta burtiem ķ un ģ); visi 33 burti, aplis un pangramma bez
   tukšiem rāmīšiem.
 - **Nav pārbaudīts:** īstā telefonā; trices izskats ar īstu rokrakstu (etalons ir ģenerēts).
+
+## Pielāgošana un pārējās zīmes (4. posms)
+
+- **Pārējās zīmes.** Pēc 33 mazajiem burtiem secība turpinās ar q w x y, lielajiem burtiem, cipariem un
+  pieturzīmēm; tās raksta, kad vajag, un jebkuru zīmi var izlaist. Progress "58 no 99" ir galvenē.
+  `scripts/letter-shapes.mjs` ir shematiskas formas visām 99 zīmēm (`moreShapes` ir masīvs tās pašas
+  ciparu secības dēļ).
+- **Stils (`core/style.ts`).** `STYLE_LIMITS`: biezums 0,5–2 (solis 0,1), atstarpes 0,04–0,16 (0,01),
+  izmērs 0,8–1,25 (0,05), slīpums −0,2–0,35 (0,05). `normalizeStyle` pievelk un noapaļo (arī ielādējot).
+  Stils mainās tikai kontūru būvē, nekad `layout`/`render-svg`:
+  - **Slīpums ir nobīdes koeficients (tangenss), nevis grādi.** Pēc vilcienu apvienošanas katrs
+    poligona punkts (veseli skaitļi) tiek pārveidots ar `s` (izmērs) un `k` (slīpums) tūkstošdaļās:
+    `y' = round(y·s / 1000)`, `x' = round((x·s·1000 + (y·s − 225·1000)·k) / 10⁶)`. Tikai veselu
+    skaitļu reizinājumi un viena dalīšana, bez `tan`. Slīpums griežas ap mazo burtu augstuma vidu (225).
+    Platums nāk no slīpās robežkastes, tāpēc nekas netiek nogriezts. Saskarne rāda aptuvenos grādus.
+  - **Izmērs** mērogo kontūru (arī līnijas biezumu) un laukuma līniju minimumus metrikā
+    (`fontMetrics(bounds, style)`); atstarpe, tukšā vieta un trices rezerve aug līdzi caur `xHeight`.
+  - Sānu atstarpe (`spacing`) nemērogojas ar izmēru. Minimums 0,04 ir pārbaudīts: ar galējiem stiliem
+    un 25 sēklām neviens glifs ar trici neiziet ārpus attēla (`core/render-svg.test.ts`). Ja minimumu
+    samazina, jāpārskata `TRICE_MARGIN` un sānu robežas.
+  - Stila maiņa pārrēķina visus glifus (kešs ir pēc stila). `WriteFlow` kompilē fontu ar
+    `useDeferredValue`, lai slīdnis paliek atsaucīgs; tāpēc e2e priekšskatījuma izmaiņas gaida ar
+    `expect.poll` vai atkārtojošiem pieņēmumiem.
+- **Sesija.** Jauni lauki `text` (lietotāja teksts, paliek ierīcē, līdz 500 zīmēm) un `queue`
+  (trūkstošo zīmju rinda); vecs ieraksts ielādējas ar noklusējumiem. `openChar(s, char, variant)`
+  atver jebkuru zīmi (pārtrauc apli un rindu). `textMissing(project, text)` sagatavo tekstu tāpat kā
+  izkārtotājs un dod `writable` (neuzrakstītās kopas zīmes) un `unsupported` (nav kopā). `startQueue`
+  ņem tikai neuzrakstītās; Tālāk iet pa rindu, pēc pēdējās `endQueue` atver pirmo neuzrakstīto.
+  Neuzrakstīts "Ā" ir neuzrakstīts arī tad, ja ir "A" un "ā"; aizstāšanas nav nekur.
+- **Saskarne.** Galvenē progress un divi skati blakus rakstīšanai:
+  - **"Visas zīmes" (`components/GlyphGrid.tsx`).** Izvēlējos glifu režģi, nevis vienkāršāku sarakstu:
+    tas ir PRD 9. sadaļā, 99 zīmes raksta ārpus kārtas, un vajag vienu vietu, kur redzēt, kas uzrakstīts
+    (pa grupām "n no m"), cik variantu un kā tas izskatās. Šūnā ir pirmais variants vai blāva
+    rakstzīme; pieskāriens atver zīmi.
+  - **"Teksts un stils" (`components/TextStyle.tsx`).** Savs teksts, liels priekšskatījums, "Trūkst N
+    zīmes: …" ar pogu "Uzrakstīt" (atver rindu) un četri slīdņi. Pēc rindas pēdējās zīmes ("Gatavs")
+    vai "Beigt" atgriežas šeit.
+  - **Viena pieskāriena pārzīmēšana:** pieskāriens glifam priekšskatījumā (abos skatos) atver tieši to
+    rakstzīmi un variantu; pieskāriens tukšam rāmītim atver neuzrakstīto zīmi. Trāpījumu nosaka
+    `Preview` pēc izkārtojuma datiem; SVG izvade nemainās.
+- **E2E:** `tests/e2e/zimes.spec.ts` (tikai telefona projektā): trūkstošo zīmju rinda, "Ā" nav ne "A",
+  ne "ā", stils (izmaiņa redzama, glifi iekš attēla, saglabājas), režģis, lielo burtu paraugi,
+  pieskāriens priekšskatījumam. Momentuzņēmumi `etalona-teksti.svg` (visi trīs PRD 12. sadaļas teksti)
+  un `stils.svg`.
+- **Nav pārbaudīts:** stila pārrēķina ātrums ar pilnu kopu īstā telefonā. Izstrādes mašīnā visa etalona
+  kopa (115 varianti) pēc stila maiņas pārrēķinās 180–250 ms; telefonā tas var būt sekunde, tāpēc
+  slīdnis strādā caur `useDeferredValue`. Ja ar to nepietiek, nākamais solis ir pārrēķināt tikai
+  tekstā redzamos glifus vai pārnest kompilēšanu uz Web Worker.
 
 ## Bibliotēku pārbaude (0. posms, 2026-11-16)
 

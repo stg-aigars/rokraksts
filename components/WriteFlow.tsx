@@ -1,8 +1,9 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useRef, useState } from 'react'
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { getCharset } from '@/core/charsets'
+import { compileFont, createGlyphCache } from '@/core/font'
 import {
   addStroke,
   addVariant,
@@ -15,13 +16,19 @@ import {
   currentStrokes,
   deleteVariant,
   endLap,
+  endQueue,
   guideStrokes,
   goBack,
   goNext,
   hasGuide,
+  openChar,
   progress,
+  queuePosition,
   selectVariant,
+  setStyle,
+  setText,
   startLap,
+  startQueue,
   toggleGhost,
   undoStroke,
   variantCount,
@@ -29,9 +36,13 @@ import {
 import type { Session } from '@/core/project'
 import { loadSession, saveSession } from '@/lib/project-store'
 import { DrawPad } from './DrawPad'
+import { GlyphGrid } from './GlyphGrid'
 import { Preview } from './Preview'
+import { TextStyle } from './TextStyle'
 
 type SaveState = 'saved' | 'saving' | 'error'
+/** Rakstīšana, pārskats pār visām zīmēm vai teksts un stils. */
+type View = 'write' | 'grid' | 'text'
 
 const saveLabels: Record<SaveState, string> = {
   saved: 'Saglabāts šajā ierīcē',
@@ -49,15 +60,23 @@ const chip = `size-9 shrink-0 rounded-full text-sm font-medium ring-1 ring-ink/1
 const small = `h-9 shrink-0 rounded-full px-3 text-sm font-medium ring-1 ring-ink/15 disabled:opacity-35 ${focusRing}`
 
 /**
- * Burtu rakstīšana pēc kārtas (PRD 4. sadaļas 3. un 5. solis); stāvoklis glabājas IndexedDB.
+ * Burtu rakstīšana (PRD 4. sadaļas 3.–7. solis); stāvoklis glabājas IndexedDB.
  * Variantus pievieno, pārzīmē un dzēš turpat zem uzvednes: pogas "1 2 3" atver variantu,
  * "+" pievieno jaunu, Notīrīt un rakstīšana no jauna to pārzīmē, "Dzēst variantu" izņem.
+ * Burtu var izlaist. "Visas zīmes" ir pārskats pār visu kopu, "Teksts un stils" ir savs teksts,
+ * trūkstošās zīmes un stils. Pieskāriens glifam priekšskatījumā vai režģī atver to pārzīmēšanai.
  */
 export function WriteFlow() {
   const [session, setSession] = useState<Session | null>(null)
   const [saveState, setSaveState] = useState<SaveState>('saved')
+  const [view, setView] = useState<View>('write')
   const latest = useRef<Session | null>(null)
   const queue = useRef<Promise<void>>(Promise.resolve())
+  const [cache] = useState(createGlyphCache)
+  // Kontūras pārrēķina no vilcieniem ar pašreizējo stilu. Atlikta vērtība ļauj slīdnim un
+  // laukumam palikt atsaucīgiem, kamēr stila maiņa pārrēķina visus glifus.
+  const project = useDeferredValue(session?.project ?? null)
+  const font = useMemo(() => (project ? compileFont(project, cache) : null), [project, cache])
 
   useEffect(() => {
     let cancelled = false
@@ -90,7 +109,7 @@ export function WriteFlow() {
       )
   }
 
-  if (!session) {
+  if (!session || !font) {
     return (
       <main className="flex h-dvh items-center justify-center">
         <p className="text-ink/60">Ielādē…</p>
@@ -102,25 +121,86 @@ export function WriteFlow() {
   const char = session.current
   const strokes = currentStrokes(session)
   const { done, total } = progress(session)
-  const group = charset.groups.find((g) => g.chars.includes(char))
   const count = variantCount(session)
+  const position = queuePosition(session)
+  const lastInQueue = position !== null && position.index === position.total - 1
+  const nextLabel = count === 0 ? 'Izlaist' : lastInQueue ? 'Gatavs' : 'Tālāk'
+
+  /** Atver rakstzīmi (un variantu) rakstīšanai no režģa vai priekšskatījuma. */
+  function open(target: string, variant = 0) {
+    update((s) => openChar(s, target, variant))
+    setView('write')
+  }
+
+  const viewButton = (target: View, label: string) => (
+    <button
+      type="button"
+      aria-pressed={view === target}
+      className={`${small} ${view === target ? 'bg-ink text-white' : 'bg-white'}`}
+      onClick={() => setView(view === target ? 'write' : target)}
+    >
+      {label}
+    </button>
+  )
+
+  const header = (
+    <header className="flex items-center justify-between gap-2 text-sm text-ink/60">
+      <Link href="/" className="underline underline-offset-4">
+        Sākums
+      </Link>
+      <span data-testid="progress" className="tabular-nums">
+        {done} no {total}
+      </span>
+      <div className="flex gap-1.5">
+        {viewButton('grid', 'Visas zīmes')}
+        {viewButton('text', 'Teksts un stils')}
+      </div>
+    </header>
+  )
+
+  const saveStatus = (
+    <p role="status" data-testid="save-state" data-state={saveState} className="text-center text-xs text-ink/50">
+      {saveLabels[saveState]}
+    </p>
+  )
+
+  if (view !== 'write') {
+    return (
+      <main className="mx-auto flex h-dvh max-w-md flex-col gap-3 overflow-hidden px-4 py-3">
+        {header}
+        <div className="-mx-4 min-h-0 flex-1 overflow-y-auto px-4 pb-2">
+          {view === 'grid' ? (
+            <GlyphGrid charset={charset} font={font} current={char} onOpen={(c) => open(c)} />
+          ) : (
+            <TextStyle
+              project={session.project}
+              font={font}
+              charset={charset}
+              text={session.text}
+              onText={(text) => update((s) => setText(s, text))}
+              onStyle={(patch) => update((s) => setStyle(s, patch))}
+              onWriteMissing={(chars) => {
+                update((s) => startQueue(s, chars))
+                setView('write')
+              }}
+              onPick={open}
+            />
+          )}
+        </div>
+        <button type="button" className={primary + ' flex-none'} onClick={() => setView('write')}>
+          Rakstīt burtus
+        </button>
+        {saveStatus}
+      </main>
+    )
+  }
   // Atvērts jauns, vēl tukšs variants: tam ir sava poga saraksta vietā `session.variant`.
   const slots = count + (session.fresh ? 1 : 0)
   const lapOffered = canStartLap(session)
 
   return (
     <main className="mx-auto flex h-dvh max-w-md flex-col gap-3 overflow-hidden px-4 py-3">
-      <header className="flex items-baseline justify-between text-sm text-ink/60">
-        <Link href="/" className="underline underline-offset-4">
-          Sākums
-        </Link>
-        <p>
-          <span data-testid="progress">
-            {done} no {total}
-          </span>
-          {group ? ` · ${group.label}` : null}
-        </p>
-      </header>
+      {header}
 
       <h1 className="text-center text-2xl font-semibold" lang="lv">
         {charset.prompt(char)}
@@ -173,7 +253,23 @@ export function WriteFlow() {
         ) : null}
       </div>
 
-      {session.lap || lapOffered ? (
+      {position ? (
+        <div data-testid="queue" className="flex items-center justify-between gap-2 text-sm">
+          <p className="min-w-0 text-ink/70">
+            Trūkstošās zīmes: {position.index + 1} no {position.total}
+          </p>
+          <button
+            type="button"
+            className={`${small} bg-white`}
+            onClick={() => {
+              update(endQueue)
+              setView('text')
+            }}
+          >
+            Beigt
+          </button>
+        </div>
+      ) : session.lap || lapOffered ? (
         <div data-testid="lap" data-active={session.lap} className="flex items-center justify-between gap-2 text-sm">
           <p className="min-w-0 text-ink/70">
             {session.lap ? 'Raksti burtus vēlreiz, lai tie tekstā nebūtu vienādi.' : 'Alfabēts gatavs! Gribi dabiskāku rakstu?'}
@@ -198,7 +294,7 @@ export function WriteFlow() {
         />
       </div>
 
-      <Preview project={session.project} />
+      <Preview font={font} charset={charset} text={session.text} onPick={open} />
 
       <div className="flex gap-2">
         <button type="button" className={secondary} disabled={!canGoBack(session)} onClick={() => update(goBack)}>
@@ -210,14 +306,21 @@ export function WriteFlow() {
         <button type="button" className={secondary} disabled={strokes.length === 0} onClick={() => update(clearStrokes)}>
           Notīrīt
         </button>
-        <button type="button" className={primary} disabled={!canGoNext(session)} onClick={() => update(goNext)}>
-          Tālāk
+        <button
+          type="button"
+          className={primary}
+          disabled={!canGoNext(session)}
+          onClick={() => {
+            update(goNext)
+            // Pēc pēdējās trūkstošās zīmes atgriežas pie teksta, lai redzētu to pilnu.
+            if (lastInQueue) setView('text')
+          }}
+        >
+          {nextLabel}
         </button>
       </div>
 
-      <p role="status" data-testid="save-state" data-state={saveState} className="text-center text-xs text-ink/50">
-        {saveLabels[saveState]}
-      </p>
+      {saveStatus}
     </main>
   )
 }

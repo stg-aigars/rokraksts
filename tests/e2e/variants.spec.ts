@@ -163,9 +163,9 @@ test('blāvais paraugs: burtam ar zīmi laukumā ir mūsu orientieris; glifā no
   const macron = (await guide.locator('path').last().boundingBox())!
   expect(macron.y + macron.height).toBeLessThan(xHeight.y)
 
-  // Paraugs nav vilciens: laukums ir tukšs, Tālāk nav pieejams, priekšskatījumā "ā" vēl nav.
+  // Paraugs nav vilciens: laukums ir tukšs, burts nav uzrakstīts (to var tikai izlaist), priekšskatījumā "ā" vēl nav.
   await expect(pad(page)).toHaveAttribute('data-strokes', '0')
-  await expect(button(page, 'Tālāk')).toBeDisabled()
+  await expect(button(page, 'Izlaist')).toBeVisible()
   await expect(definedPaths(page)).toHaveCount(1)
 
   // Raksta pāri paraugam: glifā "ā" ir tikai lietotāja vilcieni.

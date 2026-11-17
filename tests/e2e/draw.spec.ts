@@ -61,11 +61,13 @@ test('laukumā ir četras līnijas un divi palīgpunkti uz pamatlīnijas', async
   await expect(pad(page)).toHaveCSS('touch-action', 'none')
 })
 
-test('burtus raksta pēc kārtas; Tālāk kļūst pieejams tikai pēc vilciena', async ({ page }) => {
+test('burtus raksta pēc kārtas; neuzrakstītu burtu var izlaist', async ({ page }) => {
   await open(page)
   await expect(heading(page, 'Raksti mazo a')).toBeVisible()
   await expect(page.getByTestId('progress')).toHaveText('0 no 99')
-  await expect(button(page, 'Tālāk')).toBeDisabled()
+  // Kamēr burts nav uzrakstīts, poga saucas "Izlaist"; pēc vilciena "Tālāk".
+  await expect(button(page, 'Izlaist')).toBeEnabled()
+  await expect(button(page, 'Tālāk')).toHaveCount(0)
   await expect(button(page, 'Atpakaļ')).toBeDisabled()
 
   await draw(page, [0.3, 0.4], [0.6, 0.6])
@@ -94,7 +96,7 @@ test('Atsaukt noņem pēdējo vilcienu, Notīrīt visus', async ({ page }) => {
   await expect(pad(page).locator('[data-stroke]')).toHaveCount(0)
   await expect(button(page, 'Atsaukt')).toBeDisabled()
   await expect(button(page, 'Notīrīt')).toBeDisabled()
-  await expect(button(page, 'Tālāk')).toBeDisabled()
+  await expect(button(page, 'Izlaist')).toBeEnabled()
   await expect(page.getByTestId('progress')).toHaveText('0 no 99')
 })
 
@@ -181,7 +183,7 @@ test('lapa ietilpst ekrānā un visas pogas ir redzamas', async ({ page }) => {
   }))
   expect(doc.width).toBeLessThanOrEqual(viewport.width)
   expect(doc.height).toBeLessThanOrEqual(viewport.height)
-  for (const name of ['Atpakaļ', 'Atsaukt', 'Notīrīt', 'Tālāk']) {
+  for (const name of ['Atpakaļ', 'Atsaukt', 'Notīrīt', 'Izlaist', 'Visas zīmes', 'Teksts un stils']) {
     await expect(button(page, name)).toBeInViewport({ ratio: 1 })
   }
   const box = (await pad(page).boundingBox())!
