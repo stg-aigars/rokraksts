@@ -1,3 +1,4 @@
+import { lvGuides } from './lv-guides'
 import type { CharGroup, Charset } from './types'
 
 // Latviešu rakstzīmju kopa (PRD 5. sadaļa): 99 rakstzīmes.
@@ -57,4 +58,6 @@ export const lv: Charset = {
   // Pangramma no PRD 12. sadaļas ar mazajiem burtiem un bez punkta.
   sampleText: 'glāžšķūņa rūķīši dzērumā čiepj baha koncertflīģeļu vākus',
   frequentChars: [...'aisetuā'],
+  // Burtiem ķ ļ ņ ģ paraugs rāda komatu, kas nav savienots ar burtu; mazajam ģ zīme ir augšā.
+  guides: lvGuides,
 }

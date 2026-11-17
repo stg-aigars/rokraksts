@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { PAD } from '../pad'
 import { allChars, getCharset, requiredChars } from './index'
 
 const lv = getCharset('lv')
@@ -72,5 +73,59 @@ describe('latviešu rakstzīmju kopa', () => {
     for (const c of letters) expect(requiredChars(lv), c).toContain(c)
     for (const c of 'āčēģīķļņšūž') expect(letters, c).toContain(c)
     expect(lv.sampleText.normalize('NFC')).toBe(lv.sampleText)
+  })
+
+  describe('blāvie paraugi', () => {
+    const ys = (stroke: readonly number[]) => stroke.filter((_, i) => i % 2 === 1)
+    const xs = (stroke: readonly number[]) => stroke.filter((_, i) => i % 2 === 0)
+    /** Zīme ir parauga pēdējais vilciens. */
+    const mark = (char: string) => lv.guides[char]!.at(-1)!
+    const letter = (char: string) => lv.guides[char]!.slice(0, -1)
+
+    it('ir katram mazajam burtam ar zīmi un tikai tiem', () => {
+      expect(Object.keys(lv.guides).join('')).toBe('āčēģīķļņšūž')
+      for (const c of Object.keys(lv.guides)) expect(chars).toContain(c)
+    })
+
+    it('ir veseli skaitļi laukuma robežās; katrs vilciens ir vismaz viens nogrieznis', () => {
+      for (const strokes of Object.values(lv.guides)) {
+        expect(strokes.length).toBeGreaterThanOrEqual(2)
+        for (const stroke of strokes) {
+          expect(stroke.length % 2).toBe(0)
+          expect(stroke.length).toBeGreaterThanOrEqual(4)
+          expect(stroke.every(Number.isInteger)).toBe(true)
+          expect(Math.min(...xs(stroke))).toBeGreaterThanOrEqual(0)
+          expect(Math.max(...xs(stroke))).toBeLessThanOrEqual(PAD.width)
+          expect(Math.min(...ys(stroke))).toBeGreaterThanOrEqual(PAD.bottom)
+          expect(Math.max(...ys(stroke))).toBeLessThanOrEqual(PAD.top)
+        }
+      }
+    })
+
+    it('garumzīme un jumtiņš ir virs mazo burtu augstuma, brīvi no burta', () => {
+      for (const c of 'āčēīšūž') {
+        expect(Math.min(...ys(mark(c))), c).toBeGreaterThan(PAD.lines.xHeight + 60)
+        expect(Math.max(...letter(c).flatMap(ys)), c).toBeLessThanOrEqual(PAD.lines.xHeight + 5)
+      }
+      // Garumzīme ir gandrīz horizontāla svītra, jumtiņš ir ķeksis ar zemāko punktu vidū.
+      expect(mark('ā')).toHaveLength(4)
+      const caron = ys(mark('č'))
+      expect(Math.min(...caron)).toBeLessThan(Math.min(caron[0]!, caron.at(-1)!))
+    })
+
+    it('komats, nevis sedija: burtiem ķ ļ ņ zīme ir zem pamatlīnijas un nav savienota ar burtu', () => {
+      for (const c of 'ķļņ') {
+        expect(Math.max(...ys(mark(c))), c).toBeLessThanOrEqual(-80)
+        expect(Math.min(...ys(mark(c))), c).toBeGreaterThanOrEqual(PAD.lines.descender)
+        expect(Math.min(...letter(c).flatMap(ys)), c).toBeGreaterThanOrEqual(-5)
+      }
+    })
+
+    it('mazajam ģ zīme ir augšā', () => {
+      expect(Math.min(...ys(mark('ģ')))).toBeGreaterThan(PAD.lines.xHeight + 60)
+      expect(Math.max(...letter('ģ').flatMap(ys))).toBeLessThanOrEqual(PAD.lines.xHeight + 5)
+      // Pats burts g iet zem pamatlīnijas, zīme ne.
+      expect(Math.min(...letter('ģ').flatMap(ys))).toBeLessThan(-150)
+    })
   })
 })

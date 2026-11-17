@@ -1,9 +1,11 @@
 import type { CompiledFont } from './font'
 import type { Layout } from './layout'
+import { formatMatrix } from './trice'
 
 // Novietoti glifi -> SVG virkne (PRD 6. sadaļa: kartītes zīmējam paši, nevis ar fontu).
 // Izvadē ir tikai veseli skaitļi un virkņu salikšana, tāpēc viens un tas pats izkārtojums
-// dod bait-identisku SVG klientā un serverī.
+// dod bait-identisku SVG klientā un serverī. Vienīgās decimāldaļas ir trices matricas
+// koeficienti, un arī tos saliek kā virkni no veseliem skaitļiem (core/trice.ts).
 
 export type RenderOptions = {
   /** Tintes krāsa kā #rrggbb. */
@@ -47,7 +49,9 @@ export function renderSvg(layout: Layout, font: CompiledFont, options: RenderOpt
       ids.set(key, id)
       defs += `<path id="${id}" d="${compiled.path}"/>`
     }
-    uses += `<use href="#${id}" x="${glyph.x}" y="${glyph.y}"/>`
+    uses += glyph.matrix
+      ? `<use href="#${id}" transform="matrix(${formatMatrix(glyph.matrix)})"/>`
+      : `<use href="#${id}" x="${glyph.x}" y="${glyph.y}"/>`
   }
 
   let missing = ''

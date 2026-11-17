@@ -19,3 +19,13 @@ export function allChars(charset: Charset): string[] {
 export function requiredChars(charset: Charset): string[] {
   return charset.groups.filter((g) => g.required).flatMap((g) => [...g.chars])
 }
+
+/**
+ * Secība aplim "Uzraksti vēlreiz" (PRD 7. sadaļa): vispirms biežākie burti, tad pārējās
+ * rakstzīmes, kas jāuzraksta pirms pirmās kartītes, uzvedņu secībā.
+ */
+export function lapOrder(charset: Charset): string[] {
+  const required = requiredChars(charset)
+  const frequent = charset.frequentChars.filter((c) => required.includes(c))
+  return [...frequent, ...required.filter((c) => !frequent.includes(c))]
+}

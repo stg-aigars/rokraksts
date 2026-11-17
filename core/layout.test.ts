@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { getCharset } from './charsets'
 import type { CompiledFont, CompiledGlyph } from './font'
-import { MISSING_ADVANCE, SPACE_ADVANCE, layoutText, prepareText } from './layout'
-import type { Layout } from './layout'
+import { MISSING_ADVANCE, SPACE_ADVANCE, TRICE_MARGIN, layoutText as layoutWithTrice, prepareText } from './layout'
+import type { Layout, LayoutOptions } from './layout'
+import { triceAt, triceMatrix } from './trice'
 
 const lv = getCharset('lv')
 
@@ -14,6 +15,10 @@ function fakeFont(advances: Record<string, number>): CompiledFont {
   }
   return { metrics: { upm: 1000, ascender: 700, descender: -250, xHeight: 450, capHeight: 700 }, glyphs }
 }
+
+/** Tīrs izkārtojums bez trices: pozīcijas var pārbaudīt ar galvas rēķinu. */
+const layoutText = (text: string, f: CompiledFont, charset: typeof lv, options: LayoutOptions) =>
+  layoutWithTrice(text, f, charset, { trice: false, ...options })
 
 const font = fakeFont({ a: 500, ā: 500, b: 400, c: 300, '.': 100, '–': 600, '“': 200 })
 const chars = (layout: Layout) => layout.glyphs.map((g) => g.char).join('')
@@ -154,5 +159,114 @@ describe('neuzrakstītas rakstzīmes', () => {
     const layout = layoutText('Aa', font, lv, { maxWidth: 5000 })
     expect(chars(layout)).toBe('a')
     expect(layout.missingChars).toEqual(['A'])
+  })
+})
+
+/** Mākslīgs fonts, kur katram burtam ir vairāki varianti ar dažādiem platumiem. */
+function variantFont(advances: Record<string, number[]>): CompiledFont {
+  const base = fakeFont({})
+  for (const [char, list] of Object.entries(advances)) {
+    base.glyphs[char] = list.map((advance) => ({
+      path: 'M0 0L1 0L1 -1Z',
+      advance,
+      bounds: { xMin: 0, xMax: advance, yMin: 0, yMax: 450 },
+    }))
+  }
+  return base
+}
+
+const variantsOf = (layout: Layout, char: string) => layout.glyphs.filter((g) => g.char === char).map((g) => g.variant)
+
+describe('variantu maiņa', () => {
+  const three = variantFont({ a: [500, 510, 520], b: [400, 410], c: [300] })
+
+  it('atkārtoti burti izmanto dažādus variantus pēc kārtas', () => {
+    const layout = layoutText('aaaaaa', three, lv, { maxWidth: 9000, seed: 4 })
+    const seq = variantsOf(layout, 'a')
+    for (let i = 1; i < seq.length; i++) expect(seq[i]).toBe((seq[i - 1]! + 1) % 3)
+    expect(new Set(seq).size).toBe(3)
+  })
+
+  it('secīgi vienādi burti atšķiras arī tad, ja starp tiem ir citi burti, atstarpes un rindas', () => {
+    for (let seed = 0; seed < 50; seed++) {
+      const layout = layoutText('ab ca\nba cab a', three, lv, { maxWidth: 1500, seed })
+      for (const char of ['a', 'b']) {
+        const seq = variantsOf(layout, char)
+        for (let i = 1; i < seq.length; i++) expect(seq[i]).not.toBe(seq[i - 1])
+      }
+      expect(variantsOf(layout, 'c')).toEqual([0, 0])
+    }
+  })
+
+  it('katrs variants aizņem savu platumu', () => {
+    const layout = layoutText('aaa', three, lv, { maxWidth: 9000, seed: 1 })
+    const widths = variantsOf(layout, 'a').map((v) => [500, 510, 520][v]!)
+    expect(xs(layout)).toEqual([0, widths[0]!, widths[0]! + widths[1]!])
+    expect(layout.lines[0]!.width).toBe(1530)
+  })
+
+  it('sēkla nosaka, ar kuru variantu sāk; bez sēklas tā ir 0', () => {
+    const starts = new Set(
+      Array.from({ length: 30 }, (_, seed) => variantsOf(layoutText('a', three, lv, { maxWidth: 9000, seed }), 'a')[0]),
+    )
+    expect([...starts].sort()).toEqual([0, 1, 2])
+    expect(layoutText('aba', three, lv, { maxWidth: 9000 })).toEqual(layoutText('aba', three, lv, { maxWidth: 9000, seed: 0 }))
+  })
+
+  it('neuzrakstīta rakstzīme paliek tukša vieta arī tad, ja citiem burtiem ir varianti', () => {
+    const layout = layoutText('aāa', three, lv, { maxWidth: 9000, seed: 2 })
+    expect(chars(layout)).toBe('aa')
+    expect(layout.missingChars).toEqual(['ā'])
+  })
+})
+
+describe('trice izkārtojumā', () => {
+  const three = variantFont({ a: [500, 510, 520], b: [400, 410], c: [300] })
+  const options = { maxWidth: 4000, seed: 12 }
+
+  it('bez trices glifiem matricas nav', () => {
+    expect(layoutText('ab', three, lv, options).glyphs.every((g) => g.matrix === undefined)).toBe(true)
+  })
+
+  it('katram glifam ir matrica no sēklas un vietas tekstā', () => {
+    const layout = layoutWithTrice('ab a', three, lv, options)
+    // Vieta tekstā skaita rakstzīmes bez atstarpēm: a = 0, b = 1, a = 2.
+    layout.glyphs.forEach((g, i) => {
+      const advance = three.glyphs[g.char]![g.variant]!.advance
+      expect(g.matrix).toEqual(triceMatrix(triceAt(12, i), g.x, g.y, advance))
+    })
+    expect(new Set(layout.glyphs.map((g) => JSON.stringify(g.matrix!.slice(0, 4)))).size).toBeGreaterThan(1)
+  })
+
+  it('pozīcijas un rindu laušana no trices nav atkarīgas; ir tikai rezerve augšā un apakšā', () => {
+    const plain = layoutText('ab ca\nba cab a', three, lv, { ...options, maxWidth: 1500 })
+    const shaky = layoutWithTrice('ab ca\nba cab a', three, lv, { ...options, maxWidth: 1500 })
+    expect(shaky.glyphs.map((g) => [g.char, g.variant, g.x, g.y - TRICE_MARGIN])).toEqual(
+      plain.glyphs.map((g) => [g.char, g.variant, g.x, g.y]),
+    )
+    expect(shaky.height).toBe(plain.height + 2 * TRICE_MARGIN)
+    expect(shaky.width).toBe(plain.width)
+  })
+
+  it('tā pati sēkla dod identisku izkārtojumu, cita sēkla citu', () => {
+    const a = layoutWithTrice('abba cab', three, lv, options)
+    const b = layoutWithTrice('abba cab', three, lv, options)
+    expect(JSON.stringify(a)).toBe(JSON.stringify(b))
+    expect(JSON.stringify(layoutWithTrice('abba cab', three, lv, { ...options, seed: 13 }))).not.toBe(JSON.stringify(a))
+  })
+
+  it('jauna burta uzrakstīšana nemaina pārējo burtu trici (priekšskatījums nelēkā)', () => {
+    const before = layoutWithTrice('abca', variantFont({ a: [500], c: [300] }), lv, options)
+    const after = layoutWithTrice('abca', variantFont({ a: [500], b: [420], c: [300] }), lv, options)
+    expect(before.missingChars).toEqual(['b'])
+    const pick = (layout: Layout, char: string) => layout.glyphs.filter((g) => g.char === char).map((g) => g.matrix)
+    // b aizņem tikpat, cik trūkstošās zīmes vieta (420), tāpēc pārējie burti paliek uz vietas.
+    expect(pick(after, 'a')).toEqual(pick(before, 'a'))
+    expect(pick(after, 'c')).toEqual(pick(before, 'c'))
+  })
+
+  it('visi skaitļi ir veseli', () => {
+    const layout = layoutWithTrice('ab abc\nca b', three, lv, { maxWidth: 1777, align: 'center', lineHeight: 1.237, seed: 99 })
+    expect(layout.glyphs.flatMap((g) => [g.x, g.y, ...g.matrix!]).every(Number.isInteger)).toBe(true)
   })
 })

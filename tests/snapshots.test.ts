@@ -4,7 +4,7 @@ import { compileFont } from '@/core/font'
 import { layoutText } from '@/core/layout'
 import { buildOutline, outlineToPath, pointCount } from '@/core/outline'
 import { renderSvg } from '@/core/render-svg'
-import { fixtureCases, fixtureGlyphs, fixtureProject } from './fixtures/strokes'
+import { fixtureCases, fixtureGlyphs, fixtureProject, fixtureVariants } from './fixtures/strokes'
 
 // Momentuzņēmumi no etalona vilcieniem (PRD 11. sadaļa, 2. posms). Faili ir skatāmi SVG;
 // ja izmaiņa ir apzināta, tos atjauno ar `npm test -- -u` un pārskata acīm.
@@ -14,30 +14,46 @@ const snapshot = (name: string) => `./fixtures/snapshots/${name}`
 
 describe('etalona momentuzņēmumi', () => {
   it('katra etalona glifa kontūra ir stabila', async () => {
-    const lines = Object.entries({ ...fixtureGlyphs, ...fixtureCases }).map(([name, strokes]) => {
+    // Papildu varianti ir ar nosaukumu "a/2", "a/3".
+    const extra = Object.entries(fixtureVariants).flatMap(([char, list]) =>
+      list.map((strokes, i) => [`${char}/${i + 2}`, strokes] as const),
+    )
+    const lines = [...Object.entries(fixtureGlyphs), ...extra, ...Object.entries(fixtureCases)].map(([name, strokes]) => {
       const outline = buildOutline(strokes)
       return `${name}\t${pointCount(outline)}\t${outlineToPath(outline)}`
     })
     await expect(lines.join('\n') + '\n').toMatchFileSnapshot(snapshot('konturas.txt'))
   })
 
-  it('parauga teksts (pangramma mazajiem burtiem) ar pilnu alfabētu', async () => {
+  it('parauga teksts (pangramma mazajiem burtiem) ar pilnu alfabētu, variantiem un trici', async () => {
     const font = compileFont(fixtureProject())
-    const layout = layoutText(lv.sampleText, font, lv, { maxWidth: 9000 })
+    const layout = layoutText(lv.sampleText, font, lv, { maxWidth: 9000, seed: 2026 })
     expect(layout.missingChars).toEqual([])
     await expect(renderSvg(layout, font)).toMatchFileSnapshot(snapshot('pangramma.svg'))
   })
 
+  it('tā pati pangramma ar citu sēklu: cits variantu izkārtojums un trice', async () => {
+    const font = compileFont(fixtureProject())
+    const layout = layoutText(lv.sampleText, font, lv, { maxWidth: 9000, seed: 7 })
+    await expect(renderSvg(layout, font)).toMatchFileSnapshot(snapshot('pangramma-seed-7.svg'))
+  })
+
+  it('pangramma bez trices un ar vienu variantu katram burtam (2. posma izskats)', async () => {
+    const font = compileFont(fixtureProject(undefined, { variants: false }))
+    const layout = layoutText(lv.sampleText, font, lv, { maxWidth: 9000, trice: false })
+    await expect(renderSvg(layout, font)).toMatchFileSnapshot(snapshot('pangramma-bez-trices.svg'))
+  })
+
   it('centrēts teksts vairākās rindās ar aizstāšanām un trūkstošām zīmēm', async () => {
     const font = compileFont(fixtureProject([...'aābdeēiklmnoprsštuvz']))
-    const layout = layoutText('daudz laimes\ndzimšanas dienā…\nmīļā omīt', font, lv, { maxWidth: 6000, align: 'center' })
+    const layout = layoutText('daudz laimes\ndzimšanas dienā…\nmīļā omīt', font, lv, { maxWidth: 6000, align: 'center', seed: 2026 })
     expect(layout.missingChars).toEqual(['.', 'ī', 'ļ'])
     await expect(renderSvg(layout, font, { ink: '#b4402c' })).toMatchFileSnapshot(snapshot('apsveikums.svg'))
   })
 
   it('nepilns alfabēts: uzrakstīti tikai pirmie burti', async () => {
     const font = compileFont(fixtureProject(['a', 'ā', 'b']))
-    const layout = layoutText(lv.sampleText, font, lv, { maxWidth: 9000 })
+    const layout = layoutText(lv.sampleText, font, lv, { maxWidth: 9000, seed: 2026 })
     await expect(renderSvg(layout, font)).toMatchFileSnapshot(snapshot('pirmie-burti.svg'))
   })
 })

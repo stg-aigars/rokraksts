@@ -61,7 +61,8 @@ describe('vertikālā metrika', () => {
 
   it('robežas nāk no faktiski uzzīmētā augstākā un zemākā punkta, lai zīmes netiktu nogrieztas', () => {
     const font = compileFont(fixtureProject(['a', 'ģ', 'ķ']))
-    const all = Object.values(font.glyphs).map((variants) => variants[0]!.bounds)
+    // Metriku nosaka visi varianti, ne tikai pirmais.
+    const all = Object.values(font.glyphs).flatMap((variants) => variants.map((v) => v.bounds))
     const top = Math.max(...all.map((b) => b.yMax))
     const bottom = Math.min(...all.map((b) => b.yMin))
     // Pildspalvas biezuma dēļ burti sniedzas nedaudz pāri augšējai līnijai.
@@ -87,8 +88,20 @@ describe('fonta kompilēšana', () => {
   it('katram uzrakstītajam variantam ir savs glifs; neuzrakstītu rakstzīmju nav', () => {
     const font = compileFont(fixtureProject(['a', 'b']))
     expect(Object.keys(font.glyphs)).toEqual(['a', 'b'])
-    expect(font.glyphs['a']).toHaveLength(1)
+    expect(font.glyphs['a']).toHaveLength(3)
+    expect(font.glyphs['b']).toHaveLength(1)
     expect(font.glyphs['ā']).toBeUndefined()
+    // Katrs variants ir cits zīmējums ar savu kontūru un platumu.
+    expect(new Set(font.glyphs['a']!.map((g) => g.path)).size).toBe(3)
+  })
+
+  it('augstāks otrais variants pavelk fonta metriku līdzi, lai tas netiktu nogriezts', () => {
+    const project = fixtureProject(['a'], { variants: false })
+    const tall = fixtureStrokes('l').map((s) => ({ points: s.points.map((p) => ({ ...p, y: p.y + 180 })) }))
+    project.glyphs['a']!.variants.push({ strokes: tall })
+    const font = compileFont(project)
+    expect(font.glyphs['a']![1]!.bounds.yMax).toBeGreaterThan(850)
+    expect(font.metrics.ascender).toBe(font.glyphs['a']![1]!.bounds.yMax)
   })
 
   it('kešs nepārrēķina glifus, kuru vilcieni nav mainījušies', () => {

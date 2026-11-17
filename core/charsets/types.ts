@@ -25,4 +25,10 @@ export type Charset = {
   sampleText: string
   /** Biežākie burti dilstošā secībā; ar tiem sākas variantu aplis. */
   frequentChars: readonly string[]
+  /**
+   * Blāvie paraugi zīmēšanas laukumam: rakstzīme -> shematisks burts kopā ar zīmi kā lauztas
+   * līnijas [x0, y0, x1, y1, ...] fonta vienībās. Tas ir orientieris no mūsu puses (kur likt
+   * garumzīmi, jumtiņu vai komatu), nevis lietotāja rokraksts; glifā tas nekad nenonāk.
+   */
+  guides: Readonly<Record<string, readonly (readonly number[])[]>>
 }

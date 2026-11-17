@@ -66,6 +66,13 @@ export function strokePath(stroke: Stroke): string {
     .concat(stroke.points.length === 1 ? 'h0' : '')
 }
 
+/** Lauzta līnija [x0, y0, x1, y1, ...] fonta vienībās kā SVG ceļš laukuma koordinātās (blāvais paraugs). */
+export function polylinePath(points: readonly number[]): string {
+  let d = ''
+  for (let i = 0; i + 1 < points.length; i += 2) d += `${i === 0 ? 'M' : 'L'}${points[i]} ${toPadY(points[i + 1]!)}`
+  return d
+}
+
 /** Sākuma metrika no laukuma līnijām; faktisko rēķinās 2. posmā no uzzīmētā. */
 export function defaultMetrics(): FontMetrics {
   return {
