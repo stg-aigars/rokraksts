@@ -1,11 +1,16 @@
 import { allChars, getCharset, lapOrder, requiredChars } from './charsets'
+import { prepareText } from './layout'
 import { defaultMetrics } from './pad'
+import { DEFAULT_STYLE, normalizeStyle, sameStyle } from './style'
 import { MAX_VARIANTS } from './types'
-import type { FontProject, Stroke } from './types'
+import type { FontProject, FontStyle, Stroke } from './types'
 
 // Rakstīšanas sesijas stāvoklis: projekts un tas, kurš burts un kurš tā variants šobrīd ir
 // atvērts. Visas funkcijas ir tīras un atgriež jaunu objektu. FontProject paliek kā PRD
-// 10. sadaļā; viss pārējais (atvērtais variants, aplis, paraugs) ir tikai sesijas stāvoklis.
+// 10. sadaļā; viss pārējais (atvērtais variants, aplis, paraugs, lietotāja teksts, trūkstošo
+// zīmju rinda) ir tikai sesijas stāvoklis.
+
+export type GuideStyle = 'print' | 'cursive'
 
 export type Session = {
   project: FontProject
@@ -22,6 +27,17 @@ export type Session = {
   lap: boolean
   /** Vai laukumā rādīt blāvo paraugu burtiem ar zīmēm (PRD 5. sadaļa); pēc noklusējuma jā. */
   ghost: boolean
+  /** Vai rādīt blāvo paraugu pārējām zīmēm (burtiem bez zīmes, cipariem, pieturzīmēm); pēc noklusējuma nē. */
+  ghostPlain: boolean
+  /** Parauga forma: drukātie (noklusējums) vai rakstītie burti (skolas raksts). */
+  guideStyle: GuideStyle
+  /** Lietotāja teksts priekšskatījumam; tukšs nozīmē rakstzīmju kopas parauga tekstu. Paliek ierīcē. */
+  text: string
+  /**
+   * Trūkstošo zīmju rinda (PRD 4. sadaļas 4. solis): zīmes, kuru rakstīšanu atvēra no teksta.
+   * Tukša nozīmē parasto secību. Atvērtā zīme vienmēr ir rindā.
+   */
+  queue: string[]
 }
 
 export function createProject(id: string, createdAt: string): FontProject {
@@ -32,7 +48,7 @@ export function createProject(id: string, createdAt: string): FontProject {
     charset: 'lv',
     createdAt,
     metrics: defaultMetrics(),
-    style: { strokeWidth: 1, spacing: 0.06, slant: 0, scale: 1 },
+    style: { ...DEFAULT_STYLE },
     glyphs: {},
   }
 }
@@ -44,7 +60,18 @@ export function promptChars(project: FontProject): string[] {
 
 export function createSession(id: string, createdAt: string): Session {
   const project = createProject(id, createdAt)
-  return { project, current: promptChars(project)[0]!, variant: 0, fresh: true, lap: false, ghost: true }
+  return {
+    project,
+    current: promptChars(project)[0]!,
+    variant: 0,
+    fresh: true,
+    lap: false,
+    ghost: true,
+    ghostPlain: false,
+    guideStyle: 'print',
+    text: '',
+    queue: [],
+  }
 }
 
 function countOf(project: FontProject, char: string): number {
@@ -77,8 +104,10 @@ function requiredDone(project: FontProject): boolean {
 
 /** Pēc ielādes: salabo stāvokli, kas nesaskan ar projektu (cita kopa, vecāks ieraksts). */
 export function normalizeSession(session: Session): Session {
-  const { project } = session
   let next = session
+  const style = normalizeStyle(session.project.style)
+  if (!sameStyle(style, session.project.style)) next = { ...next, project: { ...next.project, style } }
+  const { project } = next
   if (!promptChars(project).includes(next.current)) next = openFirst(next, firstUnwritten(project))
 
   const count = countOf(project, next.current)
@@ -96,6 +125,13 @@ export function normalizeSession(session: Session): Session {
 
   const lapValid = requiredDone(project) && lapOrder(getCharset(project.charset)).includes(next.current)
   if (next.lap && !lapValid) next = { ...next, lap: false }
+
+  if (next.queue.length > 0) {
+    const chars = promptChars(project)
+    const queue = [...new Set(next.queue)].filter((c) => chars.includes(c))
+    if (!queue.includes(next.current) || next.lap) next = { ...next, queue: [] }
+    else if (queue.length !== next.queue.length) next = { ...next, queue }
+  }
   return next
 }
 
@@ -198,7 +234,7 @@ export function canStartLap(session: Session): boolean {
 
 export function startLap(session: Session): Session {
   if (!canStartLap(session)) return session
-  return openNew({ ...session, lap: true }, nextInLap(session, 0)!)
+  return openNew({ ...session, lap: true, queue: [] }, nextInLap(session, 0)!)
 }
 
 /** Pārtrauc apli; turpina ar pirmo vēl neuzrakstīto rakstzīmi. */
@@ -210,22 +246,24 @@ export function endLap(session: Session): Session {
 // --- pārvietošanās ---
 
 export function canGoBack(session: Session): boolean {
-  const chars = session.lap ? lapChars(session) : promptChars(session.project)
+  const chars = session.queue.length > 0 ? session.queue : session.lap ? lapChars(session) : promptChars(session.project)
   return chars.indexOf(session.current) > 0
 }
 
 /**
- * Parastajā secībā Tālāk drīkst tikai tad, kad atvērtais burts ir uzrakstīts un nav pēdējais.
- * Aplī burtu drīkst izlaist, un pēc pēdējā Tālāk apli pabeidz.
+ * Tālāk drīkst arī tad, ja atvērtais burts nav uzrakstīts: to izlaiž, un tas paliek neuzrakstīts
+ * (un nekad netiek aizstāts ar citu). Parastajā secībā pēc pēdējās rakstzīmes Tālāk nav; aplī
+ * un trūkstošo zīmju rindā pēc pēdējās Tālāk to pabeidz.
  */
 export function canGoNext(session: Session): boolean {
-  if (session.lap) return true
+  if (session.lap || session.queue.length > 0) return true
   const chars = promptChars(session.project)
-  return variantCount(session) > 0 && chars.indexOf(session.current) < chars.length - 1
+  return chars.indexOf(session.current) < chars.length - 1
 }
 
 export function goBack(session: Session): Session {
   if (!canGoBack(session)) return session
+  if (session.queue.length > 0) return openFirst(session, session.queue[session.queue.indexOf(session.current) - 1]!)
   if (!session.lap) {
     const chars = promptChars(session.project)
     return openFirst(session, chars[chars.indexOf(session.current) - 1]!)
@@ -238,6 +276,10 @@ export function goBack(session: Session): Session {
 
 export function goNext(session: Session): Session {
   if (!canGoNext(session)) return session
+  if (session.queue.length > 0) {
+    const target = session.queue[session.queue.indexOf(session.current) + 1]
+    return target === undefined ? endQueue(session) : openFirst(session, target)
+  }
   if (!session.lap) {
     const chars = promptChars(session.project)
     return openFirst(session, chars[chars.indexOf(session.current) + 1]!)
@@ -254,20 +296,130 @@ export function progress(session: Session): { done: number; total: number } {
 
 // --- blāvais paraugs (PRD 5. sadaļa) ---
 
-export function toggleGhost(session: Session): Session {
-  return { ...session, ghost: !session.ghost }
+function isMarked(session: Session): boolean {
+  return getCharset(session.project.charset).markedChars.includes(session.current)
 }
 
-/** Vai atvērtajai rakstzīmei rakstzīmju kopā ir paraugs (burti ar zīmēm). */
+/** Vai atvērtajai zīmei paraugs ir ieslēgts: burtiem ar zīmi un pārējām zīmēm izvēle ir atsevišķa. */
+export function ghostOn(session: Session): boolean {
+  return isMarked(session) ? session.ghost : session.ghostPlain
+}
+
+/** Ieslēdz vai izslēdz paraugu: burtiem ar zīmi vai visām pārējām zīmēm, atkarībā no atvērtās. */
+export function toggleGhost(session: Session): Session {
+  return isMarked(session) ? { ...session, ghost: !session.ghost } : { ...session, ghostPlain: !session.ghostPlain }
+}
+
+/** Vai atvērtajai rakstzīmei rakstzīmju kopā ir paraugs. */
 export function hasGuide(session: Session): boolean {
   return getCharset(session.project.charset).guides[session.current] !== undefined
 }
 
 /**
- * Paraugs, ko laukumā rādīt blāvi: mūsu shematisks burts ar zīmi no rakstzīmju kopas datiem.
- * Tas ir tikai fons un nav atkarīgs no lietotāja uzrakstītā; glifā tas nekad nenonāk.
+ * Paraugs, ko laukumā rādīt blāvi: mūsu shematiska zīme no rakstzīmju kopas datiem. Tas ir tikai
+ * fons un nav atkarīgs no lietotāja uzrakstītā; glifā tas nekad nenonāk.
  */
 export function guideStrokes(session: Session): readonly (readonly number[])[] {
-  if (!session.ghost) return []
-  return getCharset(session.project.charset).guides[session.current] ?? []
+  if (!ghostOn(session)) return []
+  const charset = getCharset(session.project.charset)
+  const cursive = session.guideStyle === 'cursive' ? charset.cursiveGuides[session.current] : undefined
+  return cursive ?? charset.guides[session.current] ?? []
+}
+
+/** Vai atvērtajai zīmei ir rakstītā forma (burtiem jā, cipariem un pieturzīmēm nē). */
+export function hasCursiveGuide(session: Session): boolean {
+  return getCharset(session.project.charset).cursiveGuides[session.current] !== undefined
+}
+
+/** Pārslēdz parauga formu: drukātie ↔ rakstītie. Izvēle attiecas uz visām zīmēm. */
+export function toggleGuideStyle(session: Session): Session {
+  return { ...session, guideStyle: session.guideStyle === 'cursive' ? 'print' : 'cursive' }
+}
+
+// --- jebkuras zīmes atvēršana (glifu režģis, pieskāriens priekšskatījumam) ---
+
+/**
+ * Atver rakstzīmes doto variantu pārzīmēšanai; neuzrakstītai rakstzīmei jaunu, tukšu. Pārtrauc
+ * apli un trūkstošo zīmju rindu: lietotājs ir izvēlējies, ko rakstīt.
+ */
+export function openChar(session: Session, char: string, variant = 0): Session {
+  if (!promptChars(session.project).includes(char)) return session
+  const count = countOf(session.project, char)
+  const base = { ...session, lap: false, queue: [] }
+  if (count === 0) return openFirst(base, char)
+  return { ...base, current: char, variant: Number.isInteger(variant) && variant >= 0 && variant < count ? variant : 0, fresh: false }
+}
+
+// --- trūkstošās zīmes (PRD 4. sadaļas 4. solis) ---
+
+export type TextMissing = {
+  /** Neuzrakstītās kopas rakstzīmes teksta secībā, bez dublikātiem. */
+  writable: string[]
+  /** Rakstzīmes, kuru kopā nav (emocijzīmes, @): tās uzrakstīt nevar. */
+  unsupported: string[]
+}
+
+/**
+ * Kuras teksta rakstzīmes vēl nav uzrakstītas. Tekstu sagatavo tāpat kā izkārtotājs (NFC,
+ * aizstāšanas), tāpēc saraksts sakrīt ar priekšskatījuma tukšajiem rāmīšiem. Neuzrakstīts "Ā"
+ * ir neuzrakstīts arī tad, ja ir "A" vai "ā".
+ */
+export function textMissing(project: FontProject, text: string): TextMissing {
+  const charset = getCharset(project.charset)
+  const chars = new Set(allChars(charset))
+  const result: TextMissing = { writable: [], unsupported: [] }
+  for (const char of new Set(prepareText(text, charset))) {
+    if (char === ' ' || char === '\n' || project.glyphs[char]) continue
+    ;(chars.has(char) ? result.writable : result.unsupported).push(char)
+  }
+  return result
+}
+
+/** Atver rakstīšanu tieši dotajām zīmēm pēc kārtas (jau uzrakstītās un svešās izlaiž). */
+export function startQueue(session: Session, chars: readonly string[]): Session {
+  const known = promptChars(session.project)
+  const queue = [...new Set(chars)].filter((c) => known.includes(c) && countOf(session.project, c) === 0)
+  if (queue.length === 0) return session
+  return openFirst({ ...session, lap: false, queue }, queue[0]!)
+}
+
+/** Beidz rindu; turpina ar pirmo vēl neuzrakstīto rakstzīmi. */
+export function endQueue(session: Session): Session {
+  if (session.queue.length === 0) return session
+  return openFirst({ ...session, queue: [] }, firstUnwritten(session.project))
+}
+
+/** Kura rindas zīme atvērta: { index: 0.., total }; ārpus rindas null. */
+export function queuePosition(session: Session): { index: number; total: number } | null {
+  if (session.queue.length === 0) return null
+  return { index: session.queue.indexOf(session.current), total: session.queue.length }
+}
+
+// --- teksts un stils ---
+
+/** Garākais teksts, ko glabājam priekšskatījumam (kartītes teksts ir īss). */
+export const MAX_TEXT_LENGTH = 500
+
+export function setText(session: Session, text: string): Session {
+  const next = text.slice(0, MAX_TEXT_LENGTH)
+  return next === session.text ? session : { ...session, text: next }
+}
+
+/** Maina stilu; glifu objekti paliek tie paši (kontūras pārrēķina compileFont). */
+export function setStyle(session: Session, patch: Partial<FontStyle>): Session {
+  const style = normalizeStyle({ ...session.project.style, ...patch })
+  if (sameStyle(style, session.project.style)) return session
+  return { ...session, project: { ...session.project, style } }
+}
+
+/**
+ * Teksts priekšskatījumam rakstīšanas laikā: lietotāja teksts, ja tajā ir atvērtā zīme (piemēram,
+ * rakstot trūkstošās zīmes); citādi tās grupas parauga teksts, kurā ir atvērtā zīme. Tā, rakstot
+ * lielos burtus, ciparus vai pieturzīmes, tās ir redzamas priekšskatījumā.
+ */
+export function previewText(session: Session): string {
+  const charset = getCharset(session.project.charset)
+  if (session.text && [...prepareText(session.text, charset)].includes(session.current)) return session.text
+  const group = charset.groups.find((g) => g.chars.includes(session.current))
+  return group ? charset.groupSamples[group.id] : charset.sampleText
 }

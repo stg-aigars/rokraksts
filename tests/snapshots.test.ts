@@ -4,7 +4,7 @@ import { compileFont } from '@/core/font'
 import { layoutText } from '@/core/layout'
 import { buildOutline, outlineToPath, pointCount } from '@/core/outline'
 import { renderSvg } from '@/core/render-svg'
-import { fixtureCases, fixtureGlyphs, fixtureProject, fixtureVariants } from './fixtures/strokes'
+import { fixtureAll, fixtureCases, fixtureGlyphs, fixtureMore, fixtureProject, fixtureVariants } from './fixtures/strokes'
 
 // Momentuzņēmumi no etalona vilcieniem (PRD 11. sadaļa, 2. posms). Faili ir skatāmi SVG;
 // ja izmaiņa ir apzināta, tos atjauno ar `npm test -- -u` un pārskata acīm.
@@ -18,7 +18,8 @@ describe('etalona momentuzņēmumi', () => {
     const extra = Object.entries(fixtureVariants).flatMap(([char, list]) =>
       list.map((strokes, i) => [`${char}/${i + 2}`, strokes] as const),
     )
-    const lines = [...Object.entries(fixtureGlyphs), ...extra, ...Object.entries(fixtureCases)].map(([name, strokes]) => {
+    // Pārējās 66 zīmes (4. posms) ir beigās, lai 3. posma rindas paliktu tās pašas.
+    const lines = [...Object.entries(fixtureGlyphs), ...extra, ...Object.entries(fixtureCases), ...fixtureMore].map(([name, strokes]) => {
       const outline = buildOutline(strokes)
       return `${name}\t${pointCount(outline)}\t${outlineToPath(outline)}`
     })
@@ -55,5 +56,25 @@ describe('etalona momentuzņēmumi', () => {
     const font = compileFont(fixtureProject(['a', 'ā', 'b']))
     const layout = layoutText(lv.sampleText, font, lv, { maxWidth: 9000, seed: 2026 })
     await expect(renderSvg(layout, font)).toMatchFileSnapshot(snapshot('pirmie-burti.svg'))
+  })
+
+  it('PRD 12. sadaļas etalona teksti ar visu kopu: pangramma, lielie burti, apsveikums', async () => {
+    const font = compileFont(fixtureProject(fixtureAll))
+    const text = [
+      'Glāžšķūņa rūķīši dzērumā čiepj Baha koncertflīģeļu vākus.',
+      'ĀBOLU ČIEKURS ĒNA ĢIMENE ĪSS ĶERRA ĻOTI ŅEM ŠŪPOĻU ŪDENS ŽOGS',
+      'Daudz laimes 30. dzimšanas dienā, Mārīt! ♥',
+    ].join('\n')
+    const layout = layoutText(text, font, lv, { maxWidth: 12000, seed: 2026 })
+    expect(layout.missingChars).toEqual([])
+    await expect(renderSvg(layout, font)).toMatchFileSnapshot(snapshot('etalona-teksti.svg'))
+  })
+
+  it('apsveikums ar pielāgotu stilu: biezāks, slīpāks, lielāks, ar plašākām atstarpēm', async () => {
+    const project = fixtureProject(fixtureAll)
+    const font = compileFont({ ...project, style: { strokeWidth: 1.4, spacing: 0.09, slant: 0.2, scale: 1.1 } })
+    const layout = layoutText('Daudz laimes 30. dzimšanas dienā, Mārīt! ♥', font, lv, { maxWidth: 9000, seed: 2026 })
+    expect(layout.missingChars).toEqual([])
+    await expect(renderSvg(layout, font, { ink: '#b4402c' })).toMatchFileSnapshot(snapshot('stils.svg'))
   })
 })

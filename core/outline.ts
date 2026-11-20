@@ -1,5 +1,6 @@
 import { getStroke } from 'perfect-freehand'
 import polygonClipping from 'polygon-clipping'
+import { styleUnits, transformRing } from './style'
 import type { FontStyle, Stroke } from './types'
 
 // Vilcieni -> glifa kontūra (PRD 6. sadaļas 2.–4. solis):
@@ -7,7 +8,8 @@ import type { FontStyle, Stroke } from './types'
 //      spiediens, bet, ja ierīce to nemēra, rakstīšanas ātrums;
 //   2. viena burta poligonus apvieno vienā formā bez pārklājumiem (polygon-clipping) un
 //      izlīdzina virzienus: ārējās kontūras pret pulksteņrādītāja virzienu, caurumi pa to;
-//   3. poligonu pārvērš kubiskās Bezjē līknēs ar pielaidi un noapaļo līdz veseliem skaitļiem.
+//   3. stila izmērs un slīpums pārveido poligona punktus veselos skaitļos (core/style.ts);
+//   4. poligonu pārvērš kubiskās Bezjē līknēs ar pielaidi un noapaļo līdz veseliem skaitļiem.
 // Viss ir fonta vienībās ar y uz augšu; SVG ceļā (outlineToPath) y tiek apgriezts.
 
 export type Pt = readonly [number, number]
@@ -25,7 +27,8 @@ export const PEN_SIZE = 44
 /** Mērķis no PRD: tik mezglu (līknes galapunktu) uz glifu, neskaitot vadības punktus. */
 export const MAX_GLYPH_POINTS = 60
 
-type OutlineStyle = Pick<FontStyle, 'strokeWidth'>
+/** Biezums ir obligāts; bez izmēra un slīpuma glifs ir tāds, kā uzrakstīts. */
+type OutlineStyle = Pick<FontStyle, 'strokeWidth'> & Partial<Pick<FontStyle, 'slant' | 'scale'>>
 
 // --- platums ---
 
@@ -199,8 +202,8 @@ const TANGENT_REACH = 8
 const CORNER_COS = Math.cos((50 * Math.PI) / 180)
 /** Ja posms no taisnes neatkāpjas vairāk par šo, tas ir taisne. */
 const LINE_TOLERANCE = 1
-/** Pielaides, ko izmēģina pēc kārtas, līdz glifs ietilpst MAX_GLYPH_POINTS. */
-const FIT_TOLERANCES = [1.5, 2.5, 4, 6]
+/** Pielaides, ko izmēģina pēc kārtas, līdz glifs ietilpst MAX_GLYPH_POINTS (lielākās vajag lieliem, slīpiem glifiem). */
+const FIT_TOLERANCES = [1.5, 2.5, 4, 6, 9, 13, 18]
 
 type Vec = [number, number]
 
@@ -439,9 +442,25 @@ function boundsOf(contours: Contour[]): Bounds | null {
   return bounds
 }
 
+/** Izmērs un slīpums; pēc noapaļošanas atkārtotus blakus punktus atmet. */
+function applyStyle(rings: Ring[], style: OutlineStyle): Ring[] {
+  const units = styleUnits(style)
+  if (units.slant === 0 && units.scale === 1000) return rings
+  return rings.map((ring) => {
+    const out: Ring = []
+    for (const point of transformRing(ring, units)) {
+      const last = out[out.length - 1]
+      if (!last || last[0] !== point[0] || last[1] !== point[1]) out.push(point)
+    }
+    return dropClosingPoint(out)
+  })
+}
+
 /** Viena glifa varianta kontūra no tā vilcieniem. Tīra funkcija: tie paši vilcieni dod to pašu. */
 export function buildOutline(strokes: readonly Stroke[], style: OutlineStyle = { strokeWidth: 1 }): GlyphOutline {
-  const fitters = mergeStrokes(strokes, style).map(prepareRing)
+  const fitters = applyStyle(mergeStrokes(strokes, style), style)
+    .filter((ring) => ring.length >= 3)
+    .map(prepareRing)
   let contours: Contour[] = []
   for (const tolerance of FIT_TOLERANCES) {
     contours = fitContours(fitters, tolerance)

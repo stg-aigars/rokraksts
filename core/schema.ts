@@ -68,6 +68,11 @@ export const sessionSchema = z.object({
   fresh: z.boolean().default(false),
   lap: z.boolean().default(false),
   ghost: z.boolean().default(true),
+  ghostPlain: z.boolean().default(false),
+  guideStyle: z.enum(['print', 'cursive']).default('print'),
+  // Lauki no 4. posma.
+  text: z.string().max(2000).default(''),
+  queue: z.array(charSchema).max(99).default([]),
 }) satisfies z.ZodType<Session>
 
 /** Atgriež sesiju vai null, ja dati neatbilst shēmai. */

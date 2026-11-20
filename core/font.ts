@@ -59,5 +59,11 @@ export function compileFont(project: FontProject, cache: GlyphCache = createGlyp
       return compiled
     })
   }
-  return { metrics: fontMetrics(Object.values(glyphs).flatMap((list) => list.map((g) => g.bounds))), glyphs }
+  return {
+    metrics: fontMetrics(
+      Object.values(glyphs).flatMap((list) => list.map((g) => g.bounds)),
+      project.style,
+    ),
+    glyphs,
+  }
 }

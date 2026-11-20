@@ -145,8 +145,8 @@ test('blāvais paraugs: burtam ar zīmi laukumā ir mūsu orientieris; glifā no
   const toggle = button(page, 'Paraugs')
   const guideOf = (char: string) => lv.guides[char]!
 
-  // Burtam bez zīmes parauga un pogas nav.
-  await expect(toggle).toHaveCount(0)
+  // Burtam bez zīmes paraugs pēc noklusējuma ir izslēgts.
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false')
   await expect(guide).toHaveCount(0)
   await touchStroke(page, [0.35, 0.45], [0.6, 0.65])
   await button(page, 'Tālāk').click()
@@ -163,9 +163,9 @@ test('blāvais paraugs: burtam ar zīmi laukumā ir mūsu orientieris; glifā no
   const macron = (await guide.locator('path').last().boundingBox())!
   expect(macron.y + macron.height).toBeLessThan(xHeight.y)
 
-  // Paraugs nav vilciens: laukums ir tukšs, Tālāk nav pieejams, priekšskatījumā "ā" vēl nav.
+  // Paraugs nav vilciens: laukums ir tukšs, burts nav uzrakstīts (to var tikai izlaist), priekšskatījumā "ā" vēl nav.
   await expect(pad(page)).toHaveAttribute('data-strokes', '0')
-  await expect(button(page, 'Tālāk')).toBeDisabled()
+  await expect(button(page, 'Izlaist')).toBeVisible()
   await expect(definedPaths(page)).toHaveCount(1)
 
   // Raksta pāri paraugam: glifā "ā" ir tikai lietotāja vilcieni.
@@ -186,11 +186,12 @@ test('blāvais paraugs: burtam ar zīmi laukumā ir mūsu orientieris; glifā no
   await expect(toggle).toHaveAttribute('aria-pressed', 'false')
   await expect(guide).toHaveCount(0)
 
-  // b un c: bez parauga. č: poga ir, un ieslēdzot parādās c ar jumtiņu.
+  // b un c: paraugs izslēgts (sava izvēle burtiem bez zīmes). č: izslēgts, un ieslēdzot parādās c ar jumtiņu.
   for (const char of ['b', 'c']) {
     await button(page, 'Tālāk').click()
     await expect(heading(page, `Raksti mazo ${char}`)).toBeVisible()
-    await expect(toggle).toHaveCount(0)
+    await expect(toggle).toHaveAttribute('aria-pressed', 'false')
+    await expect(guide).toHaveCount(0)
     await touchStroke(page, [0.4, 0.3], [0.5, 0.65])
   }
   await button(page, 'Tālāk').click()

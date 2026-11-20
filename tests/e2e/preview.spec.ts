@@ -68,11 +68,11 @@ test('priekšskatījums atjaunojas pēc katra vilciena, Atsaukt un Notīrīt', a
   // Otrs vilciens maina tā paša burta kontūru; glifu skaits paliek.
   await touchStroke(page, [0.6, 0.45], [0.6, 0.65])
   await expectPreview(page, count('a'))
-  const [afterSecond] = await outlines(page)
-  expect(afterSecond).not.toBe(afterFirst)
+  // Priekšskatījums pārrēķinās atlikti (useDeferredValue), tāpēc gaida ar atkārtojumu.
+  await expect.poll(async () => (await outlines(page))[0]).not.toBe(afterFirst)
 
   await button(page, 'Atsaukt').click()
-  expect(await outlines(page)).toEqual([afterFirst])
+  await expect.poll(() => outlines(page)).toEqual([afterFirst])
 
   await button(page, 'Notīrīt').click()
   await expectPreview(page, 0)

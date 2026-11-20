@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { fixtureAll, fixtureStrokes } from '../../tests/fixtures/strokes'
 import { PAD } from '../pad'
 import { allChars, getCharset, requiredChars } from './index'
 
@@ -75,6 +76,17 @@ describe('latviešu rakstzīmju kopa', () => {
     expect(lv.sampleText.normalize('NFC')).toBe(lv.sampleText)
   })
 
+  it('katras grupas parauga teksts satur visas grupas zīmes; citas zīmes tikai no obligātās grupas', () => {
+    expect(lv.groupSamples.lower).toBe(lv.sampleText)
+    const required = requiredChars(lv)
+    for (const g of lv.groups) {
+      const sample = lv.groupSamples[g.id]
+      expect(sample.normalize('NFC'), g.id).toBe(sample)
+      for (const c of g.chars) expect([...sample], `${g.id}: ${c}`).toContain(c)
+      for (const c of sample) if (c !== ' ') expect([...g.chars, ...required], `${g.id}: ${c}`).toContain(c)
+    }
+  })
+
   describe('blāvie paraugi', () => {
     const ys = (stroke: readonly number[]) => stroke.filter((_, i) => i % 2 === 1)
     const xs = (stroke: readonly number[]) => stroke.filter((_, i) => i % 2 === 0)
@@ -82,14 +94,15 @@ describe('latviešu rakstzīmju kopa', () => {
     const mark = (char: string) => lv.guides[char]!.at(-1)!
     const letter = (char: string) => lv.guides[char]!.slice(0, -1)
 
-    it('ir katram mazajam burtam ar zīmi un tikai tiem', () => {
-      expect(Object.keys(lv.guides).join('')).toBe('āčēģīķļņšūž')
-      for (const c of Object.keys(lv.guides)) expect(chars).toContain(c)
+    it('ir visām 99 kopas zīmēm; burti ar zīmi (pēc noklusējuma ieslēgtie) ir mazie un lielie ā č ē ģ ī ķ ļ ņ š ū ž', () => {
+      expect(Object.keys(lv.guides).sort()).toEqual([...chars].sort())
+      expect(lv.markedChars.join('')).toBe('āčēģīķļņšūžĀČĒĢĪĶĻŅŠŪŽ')
     })
 
-    it('ir veseli skaitļi laukuma robežās; katrs vilciens ir vismaz viens nogrieznis', () => {
-      for (const strokes of Object.values(lv.guides)) {
-        expect(strokes.length).toBeGreaterThanOrEqual(2)
+    it('ir veseli skaitļi laukuma robežās; katrs vilciens ir vismaz viens nogrieznis (punkts ir nogrieznis uz sevi)', () => {
+      for (const [char, strokes] of Object.entries(lv.guides)) {
+        // Burtam ar zīmi ir vismaz burts un zīme.
+        expect(strokes.length, char).toBeGreaterThanOrEqual(lv.markedChars.includes(char) ? 2 : 1)
         for (const stroke of strokes) {
           expect(stroke.length % 2).toBe(0)
           expect(stroke.length).toBeGreaterThanOrEqual(4)
@@ -100,6 +113,62 @@ describe('latviešu rakstzīmju kopa', () => {
           expect(Math.max(...ys(stroke))).toBeLessThanOrEqual(PAD.top)
         }
       }
+    })
+
+    it('katrs paraugs aptver visu zīmes formu (arī noslēgtās figūras o, 0, 8, ♥ nesarūk punktā)', () => {
+      // Paraugs un etalona vilcieni nāk no tām pašām formām (scripts/letter-shapes.mjs); etalonā
+      // ir neliela roku trīce, tāpēc pielaide ir dažas vienības.
+      for (const char of fixtureAll) {
+        const guide = lv.guides[char]!.flat()
+        const points = fixtureStrokes(char).flatMap((stroke) => stroke.points)
+        const box = (xs: number[], ys: number[]) => [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)]
+        const expected = box(points.map((p) => p.x), points.map((p) => p.y))
+        const actual = box(xs(guide), ys(guide))
+        actual.forEach((value, i) => expect(Math.abs(value - expected[i]!), `${char}`).toBeLessThanOrEqual(6))
+      }
+    })
+
+    describe('rakstītie burti (izvēle "Rakstītie")', () => {
+      const cursive = lv.cursiveGuides
+      const letters = lv.groups.filter((g) => g.id === 'lower' || g.id === 'lower-extra' || g.id === 'upper').flatMap((g) => [...g.chars])
+      const cmark = (c: string) => cursive[c]!.at(-1)!
+      const cletter = (c: string) => cursive[c]!.slice(0, -1)
+
+      it('ir visiem 74 burtiem un tikai tiem; cipariem un pieturzīmēm paliek drukātais paraugs', () => {
+        expect(Object.keys(cursive).sort()).toEqual([...letters].sort())
+      })
+
+      it('ir veseli skaitļi laukuma robežās', () => {
+        for (const [char, strokes] of Object.entries(cursive)) {
+          for (const stroke of strokes) {
+            expect(stroke.length % 2, char).toBe(0)
+            expect(stroke.length, char).toBeGreaterThanOrEqual(4)
+            expect(stroke.every(Number.isInteger), char).toBe(true)
+            expect(Math.min(...xs(stroke)), char).toBeGreaterThanOrEqual(0)
+            expect(Math.max(...xs(stroke)), char).toBeLessThanOrEqual(PAD.width)
+            expect(Math.min(...ys(stroke)), char).toBeGreaterThanOrEqual(PAD.bottom)
+            expect(Math.max(...ys(stroke)), char).toBeLessThanOrEqual(PAD.top)
+          }
+        }
+      })
+
+      it('garumzīme un jumtiņš ir virs burta; rakstītajiem Ģ un ģ zīme arī ir augšā (kā skolas paraugā)', () => {
+        for (const c of 'āčēīšūžģ') {
+          expect(Math.min(...ys(cmark(c))), c).toBeGreaterThan(PAD.lines.xHeight + 60)
+          expect(Math.max(...cletter(c).flatMap(ys)), c).toBeLessThanOrEqual(PAD.lines.xHeight + 20)
+        }
+        for (const c of 'ĀČĒĪŠŪŽĢ') {
+          expect(Math.min(...ys(cmark(c))), c).toBeGreaterThan(PAD.lines.ascender + 60)
+          expect(Math.max(...cletter(c).flatMap(ys)), c).toBeLessThanOrEqual(PAD.lines.ascender + 20)
+        }
+      })
+
+      it('ķ ļ ņ Ķ Ļ Ņ: komats zem pamatlīnijas', () => {
+        for (const c of 'ķļņĶĻŅ') {
+          expect(Math.max(...ys(cmark(c))), c).toBeLessThanOrEqual(-80)
+          expect(Math.min(...ys(cmark(c))), c).toBeGreaterThanOrEqual(PAD.lines.descender)
+        }
+      })
     })
 
     it('garumzīme un jumtiņš ir virs mazo burtu augstuma, brīvi no burta', () => {
@@ -118,6 +187,23 @@ describe('latviešu rakstzīmju kopa', () => {
         expect(Math.max(...ys(mark(c))), c).toBeLessThanOrEqual(-80)
         expect(Math.min(...ys(mark(c))), c).toBeGreaterThanOrEqual(PAD.lines.descender)
         expect(Math.min(...letter(c).flatMap(ys)), c).toBeGreaterThanOrEqual(-5)
+      }
+    })
+
+    it('lielajiem burtiem garumzīme un jumtiņš ir brīvajā joslā virs lielo burtu augstuma', () => {
+      for (const c of 'ĀČĒĪŠŪŽ') {
+        expect(Math.min(...ys(mark(c))), c).toBeGreaterThan(PAD.lines.ascender + 60)
+        expect(Math.max(...letter(c).flatMap(ys)), c).toBeLessThanOrEqual(PAD.lines.ascender + 5)
+        expect(Math.min(...letter(c).flatMap(ys)), c).toBeGreaterThanOrEqual(-5)
+      }
+    })
+
+    it('lielajiem Ģ Ķ Ļ Ņ komats ir apakšā un nav savienots ar burtu (arī Ģ, atšķirībā no mazā ģ)', () => {
+      for (const c of 'ĢĶĻŅ') {
+        expect(Math.max(...ys(mark(c))), c).toBeLessThanOrEqual(-80)
+        expect(Math.min(...ys(mark(c))), c).toBeGreaterThanOrEqual(PAD.lines.descender)
+        expect(Math.min(...letter(c).flatMap(ys)), c).toBeGreaterThanOrEqual(-5)
+        expect(Math.max(...letter(c).flatMap(ys)), c).toBeGreaterThan(PAD.lines.ascender - 10)
       }
     })
 

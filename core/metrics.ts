@@ -1,5 +1,6 @@
 import type { Bounds } from './outline'
 import { defaultMetrics } from './pad'
+import { scaleUnits, styleUnits } from './style'
 import { UNITS_PER_EM } from './types'
 import type { FontMetrics, FontStyle } from './types'
 
@@ -28,13 +29,22 @@ export function glyphMetrics(bounds: Bounds | null, style: Pick<FontStyle, 'spac
 }
 
 /**
- * Fonta vertikālā metrika. Mazo un lielo burtu augstums nāk no laukuma līnijām. Augšējā un
+ * Fonta vertikālā metrika. Mazo un lielo burtu augstums nāk no laukuma līnijām (ar stila izmēru). Augšējā un
  * apakšējā robeža nāk no faktiski uzzīmētā augstākā un zemākā punkta, lai zīmes netiktu
  * nogrieztas, bet nekad nav šaurāka par laukuma līnijām, lai rindas augstums nelēkātu,
  * kamēr uzrakstīti tikai zemi burti.
  */
-export function fontMetrics(glyphBounds: Iterable<Bounds | null>): FontMetrics {
-  const metrics = defaultMetrics()
+export function fontMetrics(glyphBounds: Iterable<Bounds | null>, style: Partial<Pick<FontStyle, 'scale'>> = {}): FontMetrics {
+  // Ar izmēru laukuma līnijas mērogojas kopā ar glifiem.
+  const { scale } = styleUnits(style)
+  const lines = defaultMetrics()
+  const metrics: FontMetrics = {
+    upm: 1000,
+    ascender: scaleUnits(lines.ascender, scale),
+    descender: scaleUnits(lines.descender, scale),
+    xHeight: scaleUnits(lines.xHeight, scale),
+    capHeight: scaleUnits(lines.capHeight, scale),
+  }
   for (const bounds of glyphBounds) {
     if (!bounds) continue
     metrics.ascender = Math.max(metrics.ascender, bounds.yMax)

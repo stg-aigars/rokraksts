@@ -8,7 +8,7 @@
 
 import { writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { base, cubic, dot, join, line, shapes } from '../../scripts/letter-shapes.mjs'
+import { base, cubic, dot, join, line, moreShapes, shapes } from '../../scripts/letter-shapes.mjs'
 
 const SAMPLE_MS = 8
 const SPEED = 2.4 // vienības milisekundē vilciena vidū
@@ -72,6 +72,12 @@ function glyph(name, shapes, pressure) {
 
 const glyphs = Object.fromEntries(Object.entries(shapes).map(([char, list]) => [char, glyph(char, list)]))
 
+// --- pārējās 66 zīmes (4. posms): q w x y, lielie burti, cipari, pieturzīmes ---
+// Atsevišķā sadaļā, lai 33 mazo burtu sadaļa un tās secība paliktu kā 3. posmā. Katram glifam
+// trīce nāk no sava nosaukuma, tāpēc jaunās zīmes esošo burtu vilcienus nemaina.
+
+const more = moreShapes.map(([char, list]) => [char, glyph(char, list)])
+
 // --- otrais un trešais variants (3. posms) ---
 // Cilvēks to pašu burtu otrreiz uzraksta nedaudz citādi: mazliet platāku vai šaurāku, ar citu
 // slīpumu, nedaudz pabīdītu. Pamatlīnija paliek vietā. Biežākajiem burtiem (charset.frequentChars)
@@ -125,7 +131,7 @@ const cases = {
 
 const data = {
   description:
-    'Etalona vilcieni (ģenerēti ar generate-strokes.mjs): visi 33 latviešu mazie burti (glyphs), otrais un trešais variants biežākajiem burtiem (variants) un īpaši gadījumi (cases). Punkti ir fonta vienībās, t ir ms no burta pirmā vilciena sākuma.',
+    'Etalona vilcieni (ģenerēti ar generate-strokes.mjs): visi 33 latviešu mazie burti (glyphs), pārējās 66 kopas zīmes (more), otrais un trešais variants biežākajiem burtiem (variants) un īpaši gadījumi (cases). Punkti ir fonta vienībās, t ir ms no burta pirmā vilciena sākuma.',
   glyphs,
   variants,
   cases,
@@ -141,6 +147,9 @@ const variantSection = `{\n${Object.entries(variants)
   .map(([key, list]) => `    ${JSON.stringify(key)}: [\n    ${list.map(strokeLines).join(',\n    ')}\n    ]`)
   .join(',\n')}\n  }`
 
-const json = `{\n  "description": ${JSON.stringify(data.description)},\n  "glyphs": ${section(glyphs)},\n  "variants": ${variantSection},\n  "cases": ${section(cases)}\n}\n`
+// Masīvs [rakstzīme, vilcieni], jo objektā cipari nonāktu pirmie.
+const moreSection = `[\n${more.map(([char, strokes]) => `    [${JSON.stringify(char)}, ${strokeLines(strokes)}]`).join(',\n')}\n  ]`
+
+const json = `{\n  "description": ${JSON.stringify(data.description)},\n  "glyphs": ${section(glyphs)},\n  "variants": ${variantSection},\n  "cases": ${section(cases)},\n  "more": ${moreSection}\n}\n`
 
 writeFileSync(fileURLToPath(new URL('./strokes.json', import.meta.url)), json)

@@ -15,14 +15,23 @@ export const fixtureVariants: Record<string, Stroke[][]> = data.variants
 /** Īpaši gadījumi kontūru kodam: cilpa, spiediens, punkts, svikajums. */
 export const fixtureCases: StrokeSet = data.cases
 
+/** Pārējās 66 kopas zīmes (q w x y, lielie burti, cipari, pieturzīmes) etalona secībā. */
+export const fixtureMore = data.more as [string, Stroke[]][]
+
+const moreByChar: StrokeSet = Object.fromEntries(fixtureMore)
+
+/** Visas 99 etalona zīmes: vispirms 33 mazie burti, tad pārējās. */
+export const fixtureAll: readonly string[] = [...Object.keys(fixtureGlyphs), ...fixtureMore.map(([char]) => char)]
+
 export function fixtureStrokes(name: string): Stroke[] {
-  const strokes = fixtureGlyphs[name] ?? fixtureCases[name]
+  const strokes = fixtureGlyphs[name] ?? moreByChar[name] ?? fixtureCases[name]
   if (!strokes) throw new Error(`Etalonā nav "${name}"`)
   return strokes
 }
 
 /**
- * Projekts ar etalona burtiem; bez argumenta visi, citādi tikai nosauktie. Pēc noklusējuma ar
+ * Projekts ar etalona burtiem; bez argumenta 33 mazie burti (kā 3. posmā), ar `fixtureAll` visas
+ * 99 zīmes, citādi tikai nosauktās. Pēc noklusējuma ar
  * visiem etalona variantiem; `variants: false` atstāj katram burtam tikai pirmo.
  */
 export function fixtureProject(

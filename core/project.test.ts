@@ -13,15 +13,25 @@ import {
   currentStrokes,
   deleteVariant,
   endLap,
+  endQueue,
+  ghostOn,
   guideStrokes,
+  hasCursiveGuide,
+  toggleGuideStyle,
   goBack,
   goNext,
   hasGuide,
   normalizeSession,
+  openChar,
+  previewText,
   progress,
   promptChars,
   selectVariant,
+  setStyle,
+  setText,
   startLap,
+  startQueue,
+  textMissing,
   toggleGhost,
   undoStroke,
   variantCount,
@@ -97,11 +107,13 @@ describe('vilcieni', () => {
 })
 
 describe('pārvietošanās', () => {
-  it('Tālāk nav atļauts, kamēr burts nav uzrakstīts', () => {
+  it('neuzrakstītu burtu var izlaist: Tālāk atver nākamo, un izlaistais paliek neuzrakstīts', () => {
     const s = fresh()
-    expect(canGoNext(s)).toBe(false)
-    expect(goNext(s)).toBe(s)
-    expect(canGoNext(addStroke(s, stroke(100)))).toBe(true)
+    expect(canGoNext(s)).toBe(true)
+    const skipped = goNext(s)
+    expect(skipped.current).toBe('ā')
+    expect(skipped.project.glyphs).toEqual({})
+    expect(progress(skipped)).toEqual({ done: 0, total: 99 })
   })
 
   it('Atpakaļ nav atļauts pirmajā burtā un atgriež iepriekšējā burta vilcienus', () => {
@@ -413,9 +425,20 @@ describe('blāvais paraugs', () => {
     expect(guideStrokes(toggleGhost(off))).toBe(lv.guides['ā'])
   })
 
-  it('burtam bez zīmes parauga nav', () => {
-    expect(hasGuide(fresh())).toBe(false)
-    expect(guideStrokes(fresh())).toEqual([])
+  it('burtam bez zīmes paraugs ir, bet pēc noklusējuma izslēgts; ieslēgšana neietekmē burtus ar zīmi', () => {
+    const s = fresh()
+    expect(hasGuide(s)).toBe(true)
+    expect(ghostOn(s)).toBe(false)
+    expect(guideStrokes(s)).toEqual([])
+    const on = toggleGhost(s)
+    expect([on.ghost, on.ghostPlain]).toEqual([true, true])
+    expect(guideStrokes(on)).toBe(lv.guides['a'])
+    // Izvēle attiecas uz visām zīmēm bez zīmes: arī lielajiem burtiem, cipariem, pieturzīmēm.
+    for (const c of ['B', '7', '♥']) expect(guideStrokes(openChar(on, c)), c).toBe(lv.guides[c])
+    // Burtiem ar zīmi sava izvēle: izslēdzot "ā" paraugu, "b" paraugs paliek.
+    const macronOff = toggleGhost(goNext(addStroke(on, stroke(100))))
+    expect(guideStrokes(macronOff)).toEqual([])
+    expect(guideStrokes(openChar(macronOff, 'b'))).toBe(lv.guides['b'])
   })
 
   it('paraugs ir tikai fons: glifā nonāk tikai lietotāja vilcieni', () => {
@@ -423,7 +446,7 @@ describe('blāvais paraugs', () => {
     expect(s.project.glyphs['ā']).toEqual({ char: 'ā', variants: [{ strokes: [stroke(500)] }] })
     expect(Object.keys(s.project.glyphs)).toEqual(['a', 'ā'])
     // Kamēr nav vilcienu, burts nav uzrakstīts, lai arī paraugs ir redzams.
-    expect(canGoNext(atMacron())).toBe(false)
+    expect(variantCount(atMacron())).toBe(0)
     expect(progress(atMacron())).toEqual({ done: 1, total: 99 })
   })
 })
@@ -441,6 +464,7 @@ describe('sesijas glabāšana ar variantiem', () => {
     const loaded = normalizeSession(parseSession(JSON.parse(JSON.stringify(old)))!)
     expect(loaded).toEqual(s)
     expect(loaded.ghost).toBe(true)
+    expect(loaded.ghostPlain).toBe(false)
     const unwritten = normalizeSession(parseSession({ project: s.project, current: 'ā' })!)
     expect([unwritten.variant, unwritten.fresh]).toEqual([0, true])
   })
@@ -454,5 +478,190 @@ describe('sesijas glabāšana ar variantiem', () => {
     expect(normalizeSession({ ...s, lap: true })).toMatchObject({ lap: false })
     expect(parseSession({ ...s, variant: 3 })).toBeNull()
     expect(parseSession({ ...s, variant: 0.5 })).toBeNull()
+  })
+})
+
+describe('rakstzīmju izlaišana un pārējās zīmes', () => {
+  it('pēc 33 mazajiem burtiem secība turpinās ar q w x y, lielajiem burtiem, cipariem, pieturzīmēm', () => {
+    const chars = promptChars(fresh().project)
+    expect(chars.slice(33, 38)).toEqual(['q', 'w', 'x', 'y', 'A'])
+    expect(chars.slice(-3)).toEqual(["'", '&', '♥'])
+  })
+
+  it('izlaistie mazie burti netraucē rakstīt tālāk; aplis gaida, kamēr visi 33 uzrakstīti', () => {
+    let s = fresh()
+    for (let i = 0; i < 33; i++) s = i === 5 ? goNext(s) : goNext(addStroke(s, stroke(100 + i)))
+    expect(s.current).toBe('q')
+    expect(progress(s)).toEqual({ done: 32, total: 99 })
+    expect(canStartLap(s)).toBe(false)
+    s = addStroke(openChar(s, requiredChars(lv)[5]!), stroke(900))
+    expect(canStartLap(s)).toBe(true)
+  })
+})
+
+describe('jebkuras zīmes atvēršana (režģis, pieskāriens priekšskatījumam)', () => {
+  it('atver uzrakstītas zīmes doto variantu pārzīmēšanai', () => {
+    const s = openChar(goNext(goNext(withVariants(100, 200, 300))), 'a', 2)
+    expect([s.current, s.variant, s.fresh]).toEqual(['a', 2, false])
+    expect(currentStrokes(s)).toEqual([stroke(300)])
+  })
+
+  it('neuzrakstītai zīmei atver tukšu pirmo variantu; neesošu variantu nomaina uz pirmo', () => {
+    expect(openChar(fresh(), 'Ķ')).toMatchObject({ current: 'Ķ', variant: 0, fresh: true })
+    expect(openChar(withVariants(100), 'a', 2)).toMatchObject({ current: 'a', variant: 0, fresh: false })
+  })
+
+  it('zīmi ārpus kopas neatver; atverot pārtrauc apli un trūkstošo zīmju rindu', () => {
+    const s = fresh()
+    expect(openChar(s, '@')).toBe(s)
+    const lap = startLap(alphabetDone())
+    expect(openChar(lap, 'Z')).toMatchObject({ current: 'Z', lap: false, queue: [] })
+    const queued = startQueue(s, ['A', 'B'])
+    expect(openChar(queued, 'Z').queue).toEqual([])
+  })
+})
+
+describe('trūkstošās zīmes (PRD 4. sadaļas 4. solis)', () => {
+  it('atrod tekstā neuzrakstītās zīmes teksta secībā bez dublikātiem; atstarpes un rindas neskaita', () => {
+    const s = addStroke(fresh(), stroke(100))
+    expect(textMissing(s.project, 'Aa ā!\nA ā')).toEqual({ writable: ['A', 'ā', '!'], unsupported: [] })
+    expect(textMissing(s.project, 'aaa')).toEqual({ writable: [], unsupported: [] })
+  })
+
+  it('ievadi normalizē (NFC, aizstāšanas) tāpat kā izkārtotājs', () => {
+    const s = fresh()
+    // a + kombinējamā garumzīme ir "ā"; "…" ir trīs punkti; "—" ir "–".
+    expect(textMissing(s.project, 'ā… —').writable).toEqual(['ā', '.', '–'])
+  })
+
+  it('zīmes ārpus kopas atdala: tās uzrakstīt nevar', () => {
+    expect(textMissing(fresh().project, 'a@b€')).toEqual({ writable: ['a', 'b'], unsupported: ['@', '€'] })
+  })
+
+  it('neuzrakstīts Ā nav "uzrakstīts" tikai tāpēc, ka ir A vai ā', () => {
+    let s = addStroke(openChar(fresh(), 'A'), stroke(100))
+    s = addStroke(openChar(s, 'ā'), stroke(200))
+    expect(textMissing(s.project, 'ĀAā').writable).toEqual(['Ā'])
+    expect(textMissing(s.project, 'a').writable).toEqual(['a'])
+  })
+
+  it('rinda atver tieši trūkstošās zīmes pēc kārtas un beigās atgriežas pie pirmās neuzrakstītās', () => {
+    let s = startQueue(addStroke(fresh(), stroke(100)), ['P', 'a', '!'])
+    // Jau uzrakstīto "a" rinda izlaiž.
+    expect(s.queue).toEqual(['P', '!'])
+    expect([s.current, s.variant, s.fresh]).toEqual(['P', 0, true])
+    expect(canGoBack(s)).toBe(false)
+    s = goNext(addStroke(s, stroke(200)))
+    expect(s.current).toBe('!')
+    expect(canGoBack(s)).toBe(true)
+    expect(goBack(s).current).toBe('P')
+    s = addStroke(s, stroke(300))
+    expect(canGoNext(s)).toBe(true)
+    s = goNext(s)
+    expect(s.queue).toEqual([])
+    expect(s.current).toBe('ā')
+    expect(Object.keys(s.project.glyphs)).toEqual(['a', 'P', '!'])
+  })
+
+  it('rindā zīmi var izlaist; to var arī pārtraukt', () => {
+    let s = startQueue(fresh(), ['P', 'Q'])
+    s = goNext(s)
+    expect(s.current).toBe('Q')
+    s = endQueue(s)
+    expect(s.queue).toEqual([])
+    expect(s.current).toBe('a')
+  })
+
+  it('tukša rinda neko nemaina; rinda pārtrauc apli', () => {
+    const s = fresh()
+    expect(startQueue(s, [])).toBe(s)
+    expect(startQueue(s, ['@'])).toBe(s)
+    const lap = startQueue(startLap(alphabetDone()), ['P'])
+    expect([lap.lap, lap.current]).toEqual([false, 'P'])
+  })
+})
+
+describe('teksts un stils sesijā', () => {
+  it('lietotāja teksts glabājas sesijā; tas pats teksts nemaina objektu', () => {
+    const s = setText(fresh(), 'Sveiks!')
+    expect(s.text).toBe('Sveiks!')
+    expect(setText(s, 'Sveiks!')).toBe(s)
+    expect(fresh().text).toBe('')
+  })
+
+  it('stila maiņa ir normalizēta un nemaina glifu objektus', () => {
+    const s0 = withVariants(100)
+    const s1 = setStyle(s0, { slant: 0.15, spacing: 0.5 })
+    expect(s1.project.style).toEqual({ strokeWidth: 1, spacing: 0.16, slant: 0.15, scale: 1 })
+    expect(s1.project.glyphs).toBe(s0.project.glyphs)
+    expect(setStyle(s1, { slant: 0.15 })).toBe(s1)
+  })
+
+  it('sesija ar tekstu, rindu un stilu iziet shēmu; 3. posma ieraksts ielādējas ar noklusējumiem', () => {
+    const s = setStyle(setText(startQueue(fresh(), ['Ā', '3']), 'Ā 3'), { strokeWidth: 1.4 })
+    expect(parseSession(JSON.parse(JSON.stringify(s)))).toEqual(s)
+    const old: Partial<Session> = fresh()
+    delete old.text
+    delete old.queue
+    expect(parseSession(JSON.parse(JSON.stringify(old)))).toEqual(fresh())
+  })
+
+  it('pēc ielādes salabo rindu un stilu, kas nesaskan ar projektu', () => {
+    const s = startQueue(fresh(), ['A', 'B'])
+    expect(normalizeSession({ ...s, current: 'C' }).queue).toEqual([])
+    expect(normalizeSession({ ...s, queue: ['A', '@', 'A', 'B'] }).queue).toEqual(['A', 'B'])
+    const wild = { ...s, project: { ...s.project, style: { strokeWidth: 9, spacing: 0, slant: -1, scale: 3 } } }
+    expect(normalizeSession(wild).project.style).toEqual({ strokeWidth: 2, spacing: 0.04, slant: -0.2, scale: 1.25 })
+  })
+})
+
+describe('priekšskatījuma teksts rakstot', () => {
+  it('rāda tās grupas paraugu, kuras zīmi raksta: lielos burtus, ciparus, pieturzīmes', () => {
+    expect(previewText(fresh())).toBe(lv.sampleText)
+    expect(previewText(openChar(fresh(), 'Ķ'))).toBe(lv.groupSamples.upper)
+    expect(previewText(openChar(fresh(), '7'))).toBe(lv.groupSamples.digits)
+    expect(previewText(openChar(fresh(), '♥'))).toBe(lv.groupSamples.punctuation)
+    expect(previewText(openChar(fresh(), 'x'))).toBe(lv.groupSamples['lower-extra'])
+  })
+
+  it('lietotāja tekstu rāda, ja tajā ir atvērtā zīme (arī pēc NFC); citādi grupas paraugu', () => {
+    const s = setText(fresh(), 'Sveiks, Mārīt!')
+    expect(previewText(openChar(s, 'M'))).toBe('Sveiks, Mārīt!')
+    expect(previewText(openChar(s, 'ā'))).toBe('Sveiks, Mārīt!')
+    expect(previewText(openChar(s, 'Ķ'))).toBe(lv.groupSamples.upper)
+    expect(previewText(openChar(setText(fresh(), 'Ā'), 'Ā'))).toBe('Ā')
+  })
+})
+
+describe('rakstīto burtu paraugs', () => {
+  it('pēc noklusējuma paraugs ir drukātais; izvēle "Rakstītie" rāda rakstīto formu', () => {
+    const s = fresh()
+    expect(s.guideStyle).toBe('print')
+    const atMacron = goNext(addStroke(s, stroke(100)))
+    expect(guideStrokes(atMacron)).toBe(lv.guides['ā'])
+    const cursive = toggleGuideStyle(atMacron)
+    expect(cursive.guideStyle).toBe('cursive')
+    expect(guideStrokes(cursive)).toBe(lv.cursiveGuides['ā'])
+    expect(toggleGuideStyle(cursive).guideStyle).toBe('print')
+  })
+
+  it('izvēle attiecas uz visiem burtiem; cipariem un pieturzīmēm rakstītās formas nav, tur paliek drukātā', () => {
+    const s = toggleGhost(toggleGuideStyle(fresh()))
+    expect(guideStrokes(openChar(s, 'Ģ'))).toBe(lv.cursiveGuides['Ģ'])
+    expect(hasCursiveGuide(openChar(s, 'Ģ'))).toBe(true)
+    expect(hasCursiveGuide(openChar(s, '7'))).toBe(false)
+    expect(guideStrokes(openChar(s, '7'))).toBe(lv.guides['7'])
+  })
+
+  it('izslēgts paraugs paliek izslēgts arī ar rakstīto formu', () => {
+    expect(guideStrokes(toggleGuideStyle(fresh()))).toEqual([])
+  })
+
+  it('izvēle glabājas; vecs ieraksts ielādējas ar drukāto', () => {
+    const s = toggleGuideStyle(fresh())
+    expect(parseSession(JSON.parse(JSON.stringify(s)))).toEqual(s)
+    const old: Partial<Session> = fresh()
+    delete old.guideStyle
+    expect(parseSession(JSON.parse(JSON.stringify(old)))!.guideStyle).toBe('print')
   })
 })
