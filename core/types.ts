@@ -64,6 +64,11 @@ export type Card = {
   metrics: FontMetrics
   /** Rakstzīme -> SVG path katram variantam; tikai tekstā izmantotās. */
   outlines: Record<string, string[]>
+  /**
+   * Rakstzīme -> platums katram variantam (tā pati secība kā `outlines`). Bez tā izkārtojumu no
+   * kartītes datiem nevar atkārtot (5. posmā papildināts PRD 10. sadaļas modelis).
+   */
+  advances: Record<string, number[]>
 }
 
 export const MAX_VARIANTS = 3

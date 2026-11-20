@@ -1,5 +1,4 @@
-import type { CompiledFont } from './font'
-import type { Layout } from './layout'
+import type { Layout, LayoutFont } from './layout'
 import { formatMatrix } from './trice'
 
 // Novietoti glifi -> SVG virkne (PRD 6. sadaļa: kartītes zīmējam paši, nevis ar fontu).
@@ -20,7 +19,7 @@ export type RenderOptions = {
 
 const DEFAULT_INK = '#1d2433'
 
-function escapeAttribute(value: string): string {
+export function escapeAttribute(value: string): string {
   return value
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -29,7 +28,12 @@ function escapeAttribute(value: string): string {
     .replace(/\n/g, '&#10;')
 }
 
-export function renderSvg(layout: Layout, font: CompiledFont, options: RenderOptions = {}): string {
+/**
+ * Glifu daļa bez <svg> apvalka: <defs> ar katru izmantoto variantu vienreiz, <use> katram glifam
+ * un neuzrakstīto zīmju rāmīši. Koordinātas ir fonta vienībās (y uz leju); kartīte to ievieto
+ * mērogotā grupā.
+ */
+export function renderGlyphs(layout: Layout, font: LayoutFont, options: Omit<RenderOptions, 'label'> = {}): string {
   const ink = (options.ink ?? DEFAULT_INK).toLowerCase()
   if (!/^#[0-9a-f]{6}$/.test(ink)) throw new Error(`Nederīga tintes krāsa: ${options.ink}`)
   const prefix = options.idPrefix ?? 'g'
@@ -64,9 +68,14 @@ export function renderSvg(layout: Layout, font: CompiledFont, options: RenderOpt
     }
   }
 
-  const label = escapeAttribute(options.label ?? layout.text)
-  let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${layout.width} ${layout.height}" role="img" aria-label="${label}">`
+  let svg = ''
   if (defs) svg += `<defs>${defs}</defs><g fill="${ink}">${uses}</g>`
   if (missing) svg += `<g fill="none" stroke="${ink}" stroke-opacity="0.3" stroke-width="16">${missing}</g>`
-  return `${svg}</svg>`
+  return svg
+}
+
+export function renderSvg(layout: Layout, font: LayoutFont, options: RenderOptions = {}): string {
+  const label = escapeAttribute(options.label ?? layout.text)
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${layout.width} ${layout.height}" role="img" aria-label="${label}">`
+  return `${svg}${renderGlyphs(layout, font, options)}</svg>`
 }

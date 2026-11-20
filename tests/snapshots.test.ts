@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { createCard, DEFAULT_CARD_SETTINGS, renderCardSvg } from '@/core/card'
+import type { CardSettings } from '@/core/card'
 import { getCharset } from '@/core/charsets'
 import { compileFont } from '@/core/font'
 import { layoutText } from '@/core/layout'
@@ -76,5 +78,18 @@ describe('etalona momentuzņēmumi', () => {
     const layout = layoutText('Daudz laimes 30. dzimšanas dienā, Mārīt! ♥', font, lv, { maxWidth: 9000, seed: 2026 })
     expect(layout.missingChars).toEqual([])
     await expect(renderSvg(layout, font, { ink: '#b4402c' })).toMatchFileSnapshot(snapshot('stils.svg'))
+  })
+
+  it('kartītes trīs formātos (5. posms): fons, rotājumi, tinte, līdzinājums', async () => {
+    const font = compileFont(fixtureProject(fixtureAll))
+    const cards: [string, string, Partial<CardSettings>][] = [
+      ['kartite-kvadrats.svg', 'Daudz laimes 30. dzimšanas dienā, Mārīt! ♥', {}],
+      ['kartite-portrets.svg', 'Priecīgus Ziemassvētkus,\nomīt!', { format: 'portrait', templateId: 'egle', ink: '#f6e7b0' }],
+      ['kartite-stasts.svg', 'Līgo! Lai saulains vasaras vidus.', { format: 'story', templateId: 'ligo', ink: '#2f5d1e', align: 'left' }],
+    ]
+    for (const [name, text, settings] of cards) {
+      const card = createCard({ id: name, text, settings: { ...DEFAULT_CARD_SETTINGS, seed: 2026, ...settings }, font, charset: lv })
+      await expect(renderCardSvg(card, lv)).toMatchFileSnapshot(snapshot(name))
+    }
   })
 })

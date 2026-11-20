@@ -144,7 +144,7 @@ Saņēmēja ierīcei nekad nav jāzina lietotāja fonts: apsveikums nonāk vai n
 - **Formāti.** Kvadrāts 1080×1080, portrets 1080×1350, stāsts 1080×1920. PNG zem 1 MB.
 - **Saites priekšskatījums.** Izveidojot saiti, klients augšupielādē arī 1200×630 attēlu, ko lapa norāda kā `og:image`, lai saite čatos rādītu kartīti, nevis tukšu lodziņu.
 - **Pieejamība.** Kopīgošanas lapā pilns teksts ir pieejams ekrāna lasītājiem (`aria-label` uz SVG un slēpts teksta elements); attēlam teksts tiek piedāvāts kā alt apraksts.
-- **Salasāmība.** Minimālais burtu izmērs kartītē atbilst 28 px pie 1080 px platuma; tintes un fona kontrasts vismaz 4,5:1. Redaktors neatļauj to pārkāpt.
+- **Salasāmība.** Minimālais burtu izmērs kartītē atbilst 28 px pie 1080 px platuma (izmērs ir em, kā CSS `font-size`: 1000 fonta vienības = 28 px); tintes un fona kontrasts vismaz 4,5:1. Redaktors neatļauj to pārkāpt: piedāvā tikai tintes ar pietiekamu kontrastu, un tekstu, kas neietilpst ar 28 px, nevar nosūtīt.
 - **Determinisms.** Viena kartīte (teksts + glifi + sēkla) dod bait‑identisku SVG jebkurā ierīcē.
 - **Kopīgošanas lapa.** Zem 150 KB, bez fontu ielādes, strādā ar izslēgtu JavaScript (SVG ģenerēts serverī). Apakšā neuzbāzīga saite "Izveido savu".
 - **Ko nedarīt.** Nelietot Unicode "fancy text" simbolus un nelūgt saņēmējam instalēt fontu.
@@ -228,8 +228,11 @@ type Card = {
   seed: number                // nosaka variantu secību un trici
   metrics: FontProject['metrics']
   outlines: Record<string, string[]> // rakstzīme -> SVG path katram variantam; tikai tekstā izmantotās
+  advances: Record<string, number[]> // rakstzīme -> platums katram variantam (tā pati secība)
 }
 ```
+
+`advances` pievienots 5. posmā: bez glifu platumiem izkārtojumu no kartītes datiem (serverī, bez vilcieniem) nevar atkārtot. Līdzi ceļo visi tekstā izmantoto rakstzīmju varianti, jo variantu izvēle ir atkarīga no to skaita.
 
 **Servera tabula `cards`**
 

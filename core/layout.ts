@@ -1,5 +1,4 @@
 import type { Charset } from './charsets'
-import type { CompiledFont } from './font'
 import type { FontMetrics } from './types'
 import { triceAt, triceMatrix } from './trice'
 import type { Matrix } from './trice'
@@ -35,6 +34,15 @@ export const spaceAdvance = (metrics: FontMetrics) => proportional(SPACE_ADVANCE
 export const missingAdvance = (metrics: FontMetrics) => proportional(MISSING_ADVANCE, metrics)
 export const triceMargin = (metrics: FontMetrics) => proportional(TRICE_MARGIN, metrics)
 
+/** Glifs, kāds vajadzīgs izkārtotājam un zīmētājam: SVG ceļš un platums. */
+export type LayoutGlyph = { path: string; advance: number }
+
+/**
+ * Fonts izkārtotājam: metrika un katras rakstzīmes varianti. Der gan `CompiledFont` (no vilcieniem),
+ * gan kartītes dati (`cardFont`), kuros ir tikai ceļi un platumi.
+ */
+export type LayoutFont = { metrics: FontMetrics; glyphs: Readonly<Record<string, readonly LayoutGlyph[]>> }
+
 export type LayoutOptions = {
   /** Rindas platums fonta vienībās. */
   maxWidth: number
@@ -69,6 +77,8 @@ export type Layout = {
   missing: PlacedMissing[]
   /** Neuzrakstītās rakstzīmes bez dublikātiem, teksta secībā. */
   missingChars: string[]
+  /** Vai kāds vārds bija garāks par rindu un tika lauzts pa burtiem. */
+  splitWords: boolean
 }
 
 /**
@@ -86,7 +96,7 @@ export function prepareText(text: string, charset: Charset): string {
 /** `index` ir rakstzīmes kārtas numurs tekstā, neskaitot atstarpes. */
 type Item = { char: string; variant: number; advance: number; missing: boolean; index: number }
 
-export function layoutText(text: string, font: CompiledFont, charset: Charset, options: LayoutOptions): Layout {
+export function layoutText(text: string, font: LayoutFont, charset: Charset, options: LayoutOptions): Layout {
   const prepared = prepareText(text, charset)
   const maxWidth = Math.max(0, Math.round(options.maxWidth))
   const { ascender, descender } = font.metrics
@@ -113,6 +123,7 @@ export function layoutText(text: string, font: CompiledFont, charset: Charset, o
 
   // Rindas kā vārdu saraksti; vārds ir rakstzīmju virkne bez atstarpēm.
   const rows: Item[][][] = []
+  let splitWords = false
   for (const paragraph of prepared.split('\n')) {
     let row: Item[][] = []
     let rowWidth = 0
@@ -127,6 +138,7 @@ export function layoutText(text: string, font: CompiledFont, charset: Charset, o
       if (row.length > 0 && rowWidth + needed() > maxWidth) flush()
       // Vārds, kas garāks par rindu, tiek lauzts pa burtiem; katrā rindā vismaz viens.
       while (widthOf(word) > maxWidth && word.length > 1) {
+        splitWords = true
         let count = 1
         while (count < word.length && widthOf(word.slice(0, count + 1)) <= maxWidth) count++
         rows.push([word.slice(0, count)])
@@ -146,6 +158,7 @@ export function layoutText(text: string, font: CompiledFont, charset: Charset, o
     glyphs: [],
     missing: [],
     missingChars: [],
+    splitWords,
   }
 
   rows.forEach((row, index) => {

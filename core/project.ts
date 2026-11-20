@@ -1,3 +1,6 @@
+import { DEFAULT_CARD_SETTINGS, nextSeed } from './card'
+import type { CardSettings } from './card'
+import { CARD_FORMAT_IDS, getTemplate, inkAllowed } from './card-templates'
 import { allChars, getCharset, lapOrder, requiredChars } from './charsets'
 import { prepareText } from './layout'
 import { defaultMetrics } from './pad'
@@ -38,7 +41,13 @@ export type Session = {
    * Tukša nozīmē parasto secību. Atvērtā zīme vienmēr ir rindā.
    */
   queue: string[]
+  /** Kur atgriezties pēc trūkstošo zīmju rindas: teksta skatā vai kartītes redaktorā. */
+  queueReturn: QueueReturn
+  /** Kartītes redaktora iestatījumi (5. posms); kartītes teksts ir `text`. */
+  card: CardSettings
 }
+
+export type QueueReturn = 'text' | 'card'
 
 export function createProject(id: string, createdAt: string): FontProject {
   return {
@@ -71,6 +80,8 @@ export function createSession(id: string, createdAt: string): Session {
     guideStyle: 'print',
     text: '',
     queue: [],
+    queueReturn: 'text',
+    card: { ...DEFAULT_CARD_SETTINGS },
   }
 }
 
@@ -376,11 +387,11 @@ export function textMissing(project: FontProject, text: string): TextMissing {
 }
 
 /** Atver rakstīšanu tieši dotajām zīmēm pēc kārtas (jau uzrakstītās un svešās izlaiž). */
-export function startQueue(session: Session, chars: readonly string[]): Session {
+export function startQueue(session: Session, chars: readonly string[], returnTo: QueueReturn = 'text'): Session {
   const known = promptChars(session.project)
   const queue = [...new Set(chars)].filter((c) => known.includes(c) && countOf(session.project, c) === 0)
   if (queue.length === 0) return session
-  return openFirst({ ...session, lap: false, queue }, queue[0]!)
+  return openFirst({ ...session, lap: false, queue, queueReturn: returnTo }, queue[0]!)
 }
 
 /** Beidz rindu; turpina ar pirmo vēl neuzrakstīto rakstzīmi. */
@@ -422,4 +433,32 @@ export function previewText(session: Session): string {
   if (session.text && [...prepareText(session.text, charset)].includes(session.current)) return session.text
   const group = charset.groups.find((g) => g.chars.includes(session.current))
   return group ? charset.groupSamples[group.id] : charset.sampleText
+}
+
+// --- kartīte (PRD 4. sadaļas 8. solis) ---
+
+/**
+ * Maina kartītes iestatījumus. Nezināmu formātu, fonu vai līdzinājumu nepieņem, tāpat tinti, kuras
+ * kontrasts ar fonu ir zem 4,5:1 (PRD 8. sadaļa). Ja jaunajam fonam pašreizējā tinte neder, tā
+ * kļūst par fona noklusējuma tinti.
+ */
+export function setCard(session: Session, patch: Partial<CardSettings>): Session {
+  const next = { ...session.card, ...patch }
+  if (!CARD_FORMAT_IDS.includes(next.format)) return session
+  if (next.align !== 'left' && next.align !== 'center') return session
+  if (!Number.isInteger(next.seed) || next.seed < 0 || next.seed > 0xffffffff) return session
+  const template = getTemplate(next.templateId)
+  if (!template) return session
+  if (!inkAllowed(template, next.ink)) {
+    // Tieši izvēlēta nederīga tinte netiek pieņemta; fona maiņa nomaina tinti pati.
+    if (patch.ink !== undefined) return session
+    next.ink = template.ink
+  }
+  const same = (Object.keys(next) as (keyof CardSettings)[]).every((key) => next[key] === session.card[key])
+  return same ? session : { ...session, card: next }
+}
+
+/** "Sajaukt": cita sēkla dod citu variantu izkārtojumu un trici. */
+export function shuffleCard(session: Session): Session {
+  return { ...session, card: { ...session.card, seed: nextSeed(session.card.seed) } }
 }

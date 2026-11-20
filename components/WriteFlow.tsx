@@ -1,7 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useDeferredValue, useMemo, useState } from 'react'
 import { getCharset } from '@/core/charsets'
 import { compileFont, createGlyphCache } from '@/core/font'
 import {
@@ -37,22 +38,14 @@ import {
   undoStroke,
   variantCount,
 } from '@/core/project'
-import type { Session } from '@/core/project'
-import { loadSession, saveSession } from '@/lib/project-store'
+import { saveLabels, useSession } from '@/lib/use-session'
 import { DrawPad } from './DrawPad'
 import { GlyphGrid } from './GlyphGrid'
 import { Preview } from './Preview'
 import { TextStyle } from './TextStyle'
 
-type SaveState = 'saved' | 'saving' | 'error'
 /** Rakstīšana, pārskats pār visām zīmēm vai teksts un stils. */
 type View = 'write' | 'grid' | 'text'
-
-const saveLabels: Record<SaveState, string> = {
-  saved: 'Saglabāts šajā ierīcē',
-  saving: 'Saglabā…',
-  error: 'Neizdevās saglabāt šajā ierīcē',
-}
 
 const buttonBase =
   'min-h-12 flex-1 rounded-full px-2 text-base font-medium disabled:opacity-35 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
@@ -72,47 +65,14 @@ const small = `h-9 shrink-0 rounded-full px-3 text-sm font-medium ring-1 ring-in
  * trūkstošās zīmes un stils. Pieskāriens glifam priekšskatījumā vai režģī atver to pārzīmēšanai.
  */
 export function WriteFlow() {
-  const [session, setSession] = useState<Session | null>(null)
-  const [saveState, setSaveState] = useState<SaveState>('saved')
+  const { session, saveState, update, flushed } = useSession()
+  const router = useRouter()
   const [view, setView] = useState<View>('write')
-  const latest = useRef<Session | null>(null)
-  const queue = useRef<Promise<void>>(Promise.resolve())
   const [cache] = useState(createGlyphCache)
   // Kontūras pārrēķina no vilcieniem ar pašreizējo stilu. Atlikta vērtība ļauj slīdnim un
   // laukumam palikt atsaucīgiem, kamēr stila maiņa pārrēķina visus glifus.
   const project = useDeferredValue(session?.project ?? null)
   const font = useMemo(() => (project ? compileFont(project, cache) : null), [project, cache])
-
-  useEffect(() => {
-    let cancelled = false
-    void loadSession().then((loaded) => {
-      if (cancelled) return
-      latest.current = loaded
-      setSession(loaded)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  function update(change: (session: Session) => Session) {
-    const before = latest.current
-    if (!before) return
-    const next = change(before)
-    if (next === before) return
-    latest.current = next
-    setSession(next)
-    setSaveState('saving')
-    // Ieraksti iet viens aiz otra, lai vecāks stāvoklis nepārrakstītu jaunāku.
-    queue.current = queue.current
-      .then(() => saveSession(next))
-      .then(
-        () => {
-          if (latest.current === next) setSaveState('saved')
-        },
-        () => setSaveState('error'),
-      )
-  }
 
   if (!session || !font) {
     return (
@@ -131,20 +91,28 @@ export function WriteFlow() {
   const lastInQueue = position !== null && position.index === position.total - 1
   const nextLabel = count === 0 ? 'Izlaist' : lastInQueue ? 'Gatavs' : 'Tālāk'
 
+  /** Pēc trūkstošo zīmju rindas: atpakaļ uz kartīti vai teksta skatu, no kurienes rinda sākās. */
+  function afterQueue() {
+    if (session!.queueReturn === 'card') void flushed().then(() => router.push('/kartite'))
+    else setView('text')
+  }
+
   /** Atver rakstzīmi (un variantu) rakstīšanai no režģa vai priekšskatījuma. */
   function open(target: string, variant = 0) {
     update((s) => openChar(s, target, variant))
     setView('write')
   }
 
-  const viewButton = (target: View, label: string) => (
+  // Telefonā galvenē ir maz vietas: redzamais teksts var būt īsāks par pieejamības nosaukumu.
+  const viewButton = (target: View, label: string, short = label) => (
     <button
       type="button"
+      aria-label={short === label ? undefined : label}
       aria-pressed={view === target}
       className={`${small} ${view === target ? 'bg-ink text-white' : 'bg-white'}`}
       onClick={() => setView(view === target ? 'write' : target)}
     >
-      {label}
+      {short}
     </button>
   )
 
@@ -153,12 +121,15 @@ export function WriteFlow() {
       <Link href="/" className="underline underline-offset-4">
         Sākums
       </Link>
-      <span data-testid="progress" className="tabular-nums">
+      <span data-testid="progress" className="whitespace-nowrap tabular-nums">
         {done} no {total}
       </span>
       <div className="flex gap-1.5">
+        <Link href="/kartite" className={`${small} flex items-center bg-white`}>
+          Kartīte
+        </Link>
         {viewButton('grid', 'Visas zīmes')}
-        {viewButton('text', 'Teksts un stils')}
+        {viewButton('text', 'Teksts un stils', 'Teksts')}
       </div>
     </header>
   )
@@ -280,7 +251,7 @@ export function WriteFlow() {
             className={`${small} bg-white`}
             onClick={() => {
               update(endQueue)
-              setView('text')
+              afterQueue()
             }}
           >
             Beigt
@@ -330,7 +301,7 @@ export function WriteFlow() {
           onClick={() => {
             update(goNext)
             // Pēc pēdējās trūkstošās zīmes atgriežas pie teksta, lai redzētu to pilnu.
-            if (lastInQueue) setView('text')
+            if (lastInQueue) afterQueue()
           }}
         >
           {nextLabel}
