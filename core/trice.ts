@@ -52,7 +52,7 @@ export function triceMatrix(trice: Trice, x: number, y: number, advance: number)
 }
 
 /** Tūkstošdaļas kā decimāldaļa bez liekām nullēm; virkni saliek no veseliem skaitļiem. */
-function thousandths(n: number): string {
+export function thousandths(n: number): string {
   const abs = Math.abs(n)
   const whole = Math.floor(abs / 1000)
   const fraction = String(abs % 1000).padStart(3, '0').replace(/0+$/, '')

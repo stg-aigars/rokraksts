@@ -26,17 +26,19 @@ Pirms katra commit jāiziet tīri: `lint`, `typecheck`, `test`, `build`. CI papi
 - Saskarnes teksti, testu nosaukumi un komentāri ir latviski; identifikatori kodā angliski.
 - Viss glabājas GitHub; lokālu kopiju nav, tāpēc darbs ir pabeigts tikai tad, kad tas ir nosūtīts.
 
-**Stāvoklis:** 0.–4. posms pabeigti: pamats, zīmēšanas laukums, kodols, latviešu burti (varianti,
-trice, blāvais paraugs) un 4. posms (visas 99 zīmes, stils, "trūkst zīmes" plūsma, glifu režģis).
-Nākamais ir 5. posms: kartītes redaktors, foni, 3 formāti, PNG, `navigator.share`, poga "Sajaukt".
+**Stāvoklis:** 0.–5. posms pabeigti: pamats, zīmēšanas laukums, kodols, latviešu burti (varianti,
+trice, blāvais paraugs), 4. posms (visas 99 zīmes, stils, "trūkst zīmes" plūsma, glifu režģis) un
+5. posms (kartītes redaktors `/kartite`, 8 foni, 3 formāti, tinte, līdzinājums, "Sajaukt", PNG un
+`navigator.share`). Nākamais ir 6. posms: Supabase, saite, `/k/[id]` ar SSR, OG attēls.
 
 ## Struktūra un robežas
 
 ```
 core/         tīrs TypeScript bez DOM; testi blakus failiem (*.test.ts)
-app/          Next.js App Router: (create)/, vēlāk (card)/, k/[id]/, api/cards/
-components/   React komponentes (DrawPad, WriteFlow, Preview, GlyphGrid, TextStyle; vēlāk CardCanvas)
-lib/          pārlūka puses palīgkods, kas nav komponente (project-store: IndexedDB caur idb)
+app/          Next.js App Router: (create)/raksti, (card)/kartite; vēlāk k/[id]/, api/cards/
+components/   React komponentes (DrawPad, WriteFlow, Preview, GlyphGrid, TextStyle, CardEditor)
+lib/          pārlūka puses palīgkods, kas nav komponente (project-store: IndexedDB caur idb;
+              use-session: sesijas ielāde un saglabāšana; card-canvas: PNG un Share)
 scripts/      ģeneratori: letter-shapes.mjs (burtu formas), generate-guides.mjs (blāvie paraugi)
 tests/        e2e/ (Playwright), spikes/ (bibliotēku pārbaudes), fixtures/ (etalona vilcieni un
               momentuzņēmumi), snapshots.test.ts
@@ -249,6 +251,62 @@ Ceļš: vilcieni → `outline` → `metrics` → `font` (sakompilēti glifi) →
   kopa (115 varianti) pēc stila maiņas pārrēķinās 180–250 ms; telefonā tas var būt sekunde, tāpēc
   slīdnis strādā caur `useDeferredValue`. Ja ar to nepietiek, nākamais solis ir pārrēķināt tikai
   tekstā redzamos glifus vai pārnest kompilēšanu uz Web Worker.
+
+## Kartīte un attēls (5. posms)
+
+- **Dati.** `core/card-templates.ts`: formāti (`CARD_FORMATS`: kvadrāts 1080×1080, portrets 1080×1350,
+  stāsts 1080×1920) ar malām līdz teksta laukumam (`textArea`; stāstā augšā 280, apakšā 320 px lietotņu
+  pogām), 8 foni (`CARD_TEMPLATES`: papirs, balts, egle, nakts, roze, debesis, ligo, saule) un tintes
+  palete (`INKS`, 11 krāsas). Fona rotājumi ir tikai taisnstūri un apļi veselos pikseļos, necaurredzamība
+  procentos, un tie **nekad nepārklāj teksta laukumu** (tests), tāpēc kontrastu pietiek pārbaudīt pret
+  fona krāsu. Jauns fons ir tikai dati.
+- **Kontrasts.** `core/color.ts` (WCAG 2). `allowedInks(fons)` = paletes tintes ar kontrastu ≥ 4,5:1;
+  redaktors rāda tikai tās. `setCard` tieši izvēlētu nederīgu tinti nepieņem, bet fona maiņa nederīgu
+  tinti nomaina uz fona noklusējuma tinti. Arī `cardSchema` un `renderCardSvg` nederīgu pāri noraida.
+- **`Card` modelis papildināts ar `advances`** (platums katram variantam; PRD 10. sadaļa labota): bez
+  tā izkārtojumu no kartītes datiem nevar atkārtot. `createCard` ieliek visus tekstā izmantoto zīmju
+  variantus (ne tikai izmantotos), jo variantu izvēle ir atkarīga no to skaita. `cardFont(card)` dod
+  `LayoutFont` (ceļš + platums); `layoutText`, `renderSvg` un `renderGlyphs` pieņem `LayoutFont`, ko
+  apmierina arī `CompiledFont`. `Card.metrics` ir visa fonta metrika.
+- **Izmērs (`layoutCard`).** Burtu izmērs ir em pikseļos (kā CSS `font-size`), veseli skaitļi no
+  `MAX_EM_PX` = 240 uz leju līdz `MIN_EM_PX` = 28 (PRD 8. sadaļa); ņem lielāko, ar kuru teksts ietilpst
+  laukumā un neviens vārds nav jālauž pa burtiem (`Layout.splitWords`; pieļauj tikai pie 28). Rindas
+  platums fonta vienībās = `floor(laukuma platums × 1000 / em)`. Bloks vertikāli centrēts. Ja neietilpst
+  pat pie 28, `fits: false` un `cardStatus` → `too-long`. Lineāra meklēšana (izkārtojums nav stingri
+  monotons), garam tekstam < 150 ms tests.
+- **`renderCardSvg`.** `<svg width height viewBox>` → fona `<rect>` → rotājumi → `<g transform="matrix(k 0
+  0 k x y)">` ar `renderGlyphs` (tie paši `<defs>`/`<use>` un trices matricas kā priekšskatījumā), `k` =
+  em/1000 kā virkne no veseliem skaitļiem (`thousandths`). Decimāldaļas izvadē: matricas un
+  `fill-opacity`. `aria-label` = `cardAltText` (teksts pēc NFC un aizstāšanām). Neuzrakstītās zīmes ir
+  rāmīši. Lapā ar vairākiem SVG vajag atšķirīgu `idPrefix` (redaktors lieto `kartite`).
+- **Sēkla.** `nextSeed(seed) = mix32(seed, 3)` (plūsma 3; 1 ir varianti, 2 trice): "Sajaukt" ir
+  deterministisks. Noklusējuma sēkla 1.
+- **Sesija.** `session.card` (`CardSettings`: formāts, fons, tinte, līdzinājums, sēkla); kartītes teksts ir
+  tas pats `session.text`. Bojāti vai trūkstoši kartītes iestatījumi ielādējot kļūst par noklusējumiem
+  (`.catch`), nesabojājot sesiju. `startQueue(s, zīmes, 'card')` ieraksta `queueReturn`, un `WriteFlow`
+  pēc rindas ("Gatavs" vai "Beigt") atgriežas `/kartite`, nevis teksta skatā.
+- **Saskarne.** `/kartite` (`components/CardEditor.tsx`): SVG priekšskatījums, statuss (trūkst zīmes ar
+  "Uzrakstīt", zīmes ārpus kopas, tukšs, par garu), "Sūtīt kā attēlu", "Lejupielādēt", teksts, "Sajaukt",
+  līdzinājums, formāts, fons, tinte, alt teksts ar "Kopēt aprakstu" (Share API alt nepazīst, tāpēc to
+  piedāvājam kopēt). Sesijas ielāde un saglabāšana ir `lib/use-session.ts` (kopīga ar `WriteFlow`).
+  Rakstīšanas galvenē poga "Kartīte"; vietas dēļ "Teksts un stils" redzamajā tekstā ir "Teksts"
+  (pieejamības nosaukums nemainīts).
+- **PNG (`lib/card-canvas.ts`).** `drawCard` zīmē to pašu `layoutCard` uz canvas: fons, rotājumi, tad katram
+  glifam `setTransform(k,0,0,k,x,y)` + `transform(matrix/1000…)` + `fill(Path2D)`. Attēlu sagatavo iepriekš
+  (150 ms pēc izmaiņas), lai `navigator.share` izsauktu tieši no pieskāriena (iOS Safari pēc asinhrona
+  darba žestu var neatzīt). `shareOrDownload`: `canShare({ files })` → Share; `AbortError` = lietotājs
+  aizvēra; citādi lejupielāde `apsveikums.png`.
+- **E2E:** `tests/e2e/kartite.spec.ts` (tikai telefona projektā). Fontu ieliek IndexedDB no
+  `strokes.json`, ko nolasa ar `fs` (Playwright ESM ielādētājs prasa JSON importa atribūtu, tāpēc
+  `tests/fixtures/strokes.ts` e2e nelieto). Pārbauda formātu, fonu (tumšam fonam tumšā tinte pazūd),
+  tinti, līdzinājumu, "Sajaukt", saglabāšanu un bait-identisku SVG pēc pārlādes; PNG izmērus, < 1 MB un
+  pikseļu salīdzinājumu ar SVG priekšskatījumu; Share ar aizstātu `navigator.share`; trūkstošo zīmju
+  rindu no kartītes un atgriešanos. Momentuzņēmumi `kartite-kvadrats.svg`, `kartite-portrets.svg`,
+  `kartite-stasts.svg`.
+- **Nav pārbaudīts:** īstā iPhone un Android: Share ar failu uz WhatsApp (PRD 11. sadaļas "gatavs"
+  kritērijs), PNG ģenerēšanas ātrums un `roundRect` vecākos pārlūkos (pašlaik neviens fons to nelieto).
+  Emocijzīmes kartītē netiek attēlotas (PRD paredz sistēmas fontu, bet tas lauztu determinismu): tās
+  bloķē sūtīšanu ar aicinājumu izņemt no teksta.
 
 ## Bibliotēku pārbaude (0. posms, 2026-11-16)
 

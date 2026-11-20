@@ -27,7 +27,9 @@ import {
   progress,
   promptChars,
   selectVariant,
+  setCard,
   setStyle,
+  shuffleCard,
   setText,
   startLap,
   startQueue,
@@ -38,6 +40,7 @@ import {
 } from './project'
 import type { Session } from './project'
 import { parseSession } from './schema'
+import { DEFAULT_CARD_SETTINGS, nextSeed } from './card'
 import type { Stroke } from './types'
 
 const stroke = (x: number): Stroke => ({
@@ -663,5 +666,62 @@ describe('rakstīto burtu paraugs', () => {
     const old: Partial<Session> = fresh()
     delete old.guideStyle
     expect(parseSession(JSON.parse(JSON.stringify(old)))!.guideStyle).toBe('print')
+  })
+})
+
+describe('kartītes iestatījumi sesijā (5. posms)', () => {
+  it('jaunai sesijai ir noklusējuma kartīte: kvadrāts, papīrs, tinte, centrēts', () => {
+    expect(fresh().card).toEqual(DEFAULT_CARD_SETTINGS)
+  })
+
+  it('formātu, fonu, tinti un līdzinājumu var mainīt; nezināmas vērtības netiek pieņemtas', () => {
+    const s = fresh()
+    expect(setCard(s, { format: 'story' }).card.format).toBe('story')
+    expect(setCard(s, { align: 'left' }).card.align).toBe('left')
+    expect(setCard(s, { ink: '#b4402c' }).card.ink).toBe('#b4402c')
+    expect(setCard(s, { format: 'a4' as never })).toBe(s)
+    expect(setCard(s, { templateId: 'nav-tada' })).toBe(s)
+    expect(setCard(s, { align: 'right' as never })).toBe(s)
+    expect(setCard(s, { format: 'square' })).toBe(s)
+  })
+
+  it('tinti ar pārāk mazu kontrastu (zem 4,5:1) redaktors nepieņem', () => {
+    const s = fresh()
+    // Balta tinte uz papīra fona nav salasāma.
+    expect(setCard(s, { ink: '#ffffff' })).toBe(s)
+    expect(setCard(s, { ink: '#123456' })).toBe(s)
+  })
+
+  it('mainot fonu, nederīga tinte nomainās uz fona noklusējuma tinti; derīga paliek', () => {
+    const dark = setCard(fresh(), { templateId: 'nakts' })
+    expect(dark.card).toMatchObject({ templateId: 'nakts', ink: '#ffffff' })
+    const gold = setCard(dark, { ink: '#f6e7b0' })
+    expect(setCard(gold, { templateId: 'egle' }).card.ink).toBe('#f6e7b0')
+    // Fons un tinte kopā: tinte attiecas uz jauno fonu.
+    expect(setCard(fresh(), { templateId: 'egle', ink: '#ffffff' }).card).toMatchObject({ templateId: 'egle', ink: '#ffffff' })
+  })
+
+  it('"Sajaukt" nomaina sēklu uz nākamo', () => {
+    const s = fresh()
+    const once = shuffleCard(s)
+    expect(once.card.seed).toBe(nextSeed(s.card.seed))
+    expect(shuffleCard(once).card.seed).not.toBe(once.card.seed)
+  })
+
+  it('kartīte glabājas; vecs ieraksts ielādējas ar noklusējumiem, bojāti iestatījumi nesabojā sesiju', () => {
+    const s = shuffleCard(setCard(fresh(), { format: 'portrait', templateId: 'roze', align: 'left' }))
+    expect(parseSession(JSON.parse(JSON.stringify(s)))).toEqual(s)
+    const old: Partial<Session> = fresh()
+    delete old.card
+    expect(parseSession(JSON.parse(JSON.stringify(old)))!.card).toEqual(DEFAULT_CARD_SETTINGS)
+    const broken = { ...fresh(), card: { ...DEFAULT_CARD_SETTINGS, ink: '#ffffff' } }
+    expect(parseSession(JSON.parse(JSON.stringify(broken)))!.card).toEqual(DEFAULT_CARD_SETTINGS)
+  })
+
+  it('trūkstošo zīmju rinda no kartītes atceras, ka jāatgriežas kartītē', () => {
+    const s = startQueue(fresh(), ['A', '!'], 'card')
+    expect(s.queueReturn).toBe('card')
+    expect(startQueue(fresh(), ['A']).queueReturn).toBe('text')
+    expect(parseSession(JSON.parse(JSON.stringify(s)))).toEqual(s)
   })
 })
